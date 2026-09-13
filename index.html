@@ -376,8 +376,6 @@ var FIREBASE_CONFIG = {
   body.readonly .add-btn,
   body.readonly #exampleBanner{ display:none !important; }
   body:not(.owner) #familyBtn{ display:none !important; }
-  body.readonly .item-row{ cursor:default; }
-  body.readonly .week-chip, body.readonly .tl-block, body.readonly .tl-trans{ cursor:default; }
   .role-badge{
     font-size:.62rem; font-weight:700; padding:2px 8px; border-radius:999px;
     background:var(--accent-soft); color:var(--accent); white-space:nowrap;
@@ -413,6 +411,52 @@ var FIREBASE_CONFIG = {
   .viewer-row .right{ display:flex; align-items:center; gap:6px; flex-shrink:0; }
   .family-add{ display:flex; gap:8px; margin-top:10px; }
   .family-add input{ flex:1; min-width:0; }
+
+  .plain-select{
+    font-family:inherit; font-size:.92rem; padding:9px 11px; border-radius:var(--radius-sm);
+    border:1px solid var(--line-strong); background:var(--bg); color:var(--ink); width:100%;
+  }
+  .detail-line{ display:flex; gap:10px; font-size:.9rem; padding:7px 0; border-bottom:1px solid var(--line); }
+  .detail-line .k{ color:var(--ink-faint); flex:0 0 68px; font-size:.8rem; padding-top:2px; }
+  .detail-line .v{ color:var(--ink); flex:1; }
+
+  /* 시간표 블록을 눌렀을 때 뜨는 간단 팝업 */
+  .peek-back{ position:fixed; inset:0; z-index:59; }
+  .peek{
+    position:fixed; z-index:60; width:268px; max-width:calc(100vw - 24px);
+    background:var(--surface); border:1px solid var(--line-strong);
+    border-radius:var(--radius-md); box-shadow:0 10px 30px -10px rgba(30,38,32,.38);
+    padding:12px 13px; font-size:.8rem;
+    border-left:4px solid var(--type-color, var(--accent));
+  }
+  .peek h3{
+    font-size:.94rem; margin:0 0 7px; display:flex; align-items:center; gap:6px;
+    flex-wrap:wrap; word-break:keep-all;
+  }
+  .peek .ptype{
+    font-size:.62rem; font-weight:700; padding:2px 7px; border-radius:999px;
+    background:var(--type-bg, var(--surface-2)); color:var(--type-color, var(--ink-soft));
+  }
+  .peek .prow{ display:flex; gap:8px; align-items:baseline; padding:6px 0; border-top:1px solid var(--line); }
+  .peek .pk{ color:var(--ink-faint); font-size:.7rem; flex:0 0 42px; }
+  .peek .pv{ flex:1; min-width:0; color:var(--ink); font-variant-numeric:tabular-nums; word-break:keep-all; }
+  .peek .pv.main{ font-weight:700; }
+  .peek .pmemo{
+    display:block; color:var(--ink-faint); font-size:.72rem; margin-top:2px;
+    font-variant-numeric:normal; word-break:keep-all;
+  }
+  .peek .pmode{
+    font-size:.62rem; font-weight:700; padding:1px 6px; border-radius:999px;
+    background:var(--surface-2); color:var(--ink-soft); margin-right:4px;
+  }
+  .peek .pmode.car{ background:var(--pickup-bg); color:var(--pickup); }
+  .peek .pactions{ display:flex; gap:6px; margin-top:10px; }
+  .peek .pactions button{
+    flex:1; font-family:inherit; font-size:.76rem; font-weight:700; padding:8px;
+    border-radius:var(--radius-sm); border:1px solid var(--line-strong);
+    background:var(--surface); color:var(--ink); cursor:pointer;
+  }
+  .peek .pactions button.main{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
 
   .modal-actions{ display:flex; gap:8px; margin-top:4px; }
   .btn{
@@ -535,7 +579,8 @@ var FIREBASE_CONFIG = {
     <div class="acct">
       <span class="role-badge" id="roleBadge" hidden>보기 전용</span>
       <span class="em" id="userEmail"></span>
-      <button type="button" class="linkbtn" id="familyBtn">가족 연결</button>
+      <button type="button" class="linkbtn" id="alarmBtn">알림</button>
+      <button type="button" class="linkbtn" id="familyBtn">가족</button>
       <button type="button" class="linkbtn" id="logoutBtn">로그아웃</button>
     </div>
   </div>
@@ -573,6 +618,58 @@ var FIREBASE_CONFIG = {
   <div class="tl-wrap" id="timelineWrap" hidden><div class="tl" id="timeline"></div></div>
 
   <footer class="hint" id="footHint">일정을 누르면 바로 수정할 수 있어요. 등록한 시간표는 가족이 함께 봅니다.</footer>
+</div>
+
+<div class="overlay" id="alarmOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="alarmTitle">
+    <h2 id="alarmTitle">알림</h2>
+
+    <div class="field">
+      <label>이 기기에서 알림 받기</label>
+      <p class="day-hint" id="permHint"></p>
+      <button type="button" class="btn" id="permBtn">알림 켜기</button>
+    </div>
+
+    <div class="field">
+      <label for="leadSel">수업 알림 시각</label>
+      <select id="leadSel" class="plain-select">
+        <option value="5">시작 5분 전</option>
+        <option value="10" selected>시작 10분 전</option>
+        <option value="15">시작 15분 전</option>
+        <option value="30">시작 30분 전</option>
+      </select>
+    </div>
+
+    <label class="repeat-toggle" for="transAlarmChk">
+      <input type="checkbox" id="transAlarmChk" checked>
+      <span>이동 알림도 받기 <span class="sub">차량 탑승·출발 5분 전</span></span>
+    </label>
+
+    <div class="field" style="margin-top:6px;">
+      <label>캘린더로 내보내기</label>
+      <p class="day-hint">앱을 꺼둔 상태에서도 알림을 받으려면 폰 캘린더에 넣어두세요. 매주 반복으로 들어가고, 일정별 알림은 캘린더에서 끄고 켤 수 있습니다.</p>
+      <button type="button" class="btn primary" id="icsBtn">캘린더 파일 내려받기</button>
+    </div>
+
+    <p class="gate-msg" id="alarmMsg"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="alarmClose">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="detailOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <h2 id="detailTitle">일정</h2>
+    <div id="detailBody"></div>
+    <label class="repeat-toggle" for="detailAlarmChk">
+      <input type="checkbox" id="detailAlarmChk">
+      <span>이 일정 알림 받기 <span class="sub">이 기기에만 적용</span></span>
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="detailClose">닫기</button>
+    </div>
+  </div>
 </div>
 
 <div class="overlay" id="familyOverlay" hidden>
@@ -840,7 +937,9 @@ var FIREBASE_CONFIG = {
     }
     row.appendChild(time);
     row.appendChild(body);
-    if (!state.readOnly) row.addEventListener("click", function(){ openEdit(it.id); });
+    row.addEventListener("click", function(){
+      if (state.readOnly) openDetail(it.id); else openEdit(it.id);
+    });
     return row;
   }
 
@@ -944,7 +1043,7 @@ var FIREBASE_CONFIG = {
           if (it.end) tm.appendChild(el("span","wend", "~" + formatTimeShort(it.end)));
           chip.appendChild(tm);
           chip.appendChild(el("span","wtitle", it.title));
-          chip.addEventListener("click", function(){ openEdit(it.id); });
+          chip.addEventListener("click", function(e){ e.stopPropagation(); openPeek(it.id, chip); });
 
           var go = weekTransBar(it, "go");
           if (go) wrap.appendChild(go);
@@ -1062,7 +1161,7 @@ var FIREBASE_CONFIG = {
           bar.title = (isGo ? "가는 길 · " : "오는 길 · ") + transLabel(mode) + " "
                     + formatTimeShort(t[2]) + "~" + formatTimeShort(t[3])
                     + (memo ? " · " + memo : "");
-          bar.addEventListener("click", function(){ openEdit(it.id); });
+          bar.addEventListener("click", function(e){ e.stopPropagation(); openPeek(it.id, bar); });
           col.appendChild(bar);
         });
       });
@@ -1093,7 +1192,7 @@ var FIREBASE_CONFIG = {
         }
         block.textContent = it.title;
         block.title = it.title + " · " + formatTime(it.start) + "~" + formatTime(it.end);
-        block.addEventListener("click", function(){ openEdit(it.id); });
+        block.addEventListener("click", function(e){ e.stopPropagation(); openPeek(it.id, block); });
         col.appendChild(block);
       });
 
@@ -1102,6 +1201,7 @@ var FIREBASE_CONFIG = {
   }
 
   function renderWeekView(){
+    closePeek();
     var isTime = state.weekView === "time";
     document.getElementById("weekGrid").hidden = isTime;
     document.getElementById("timelineWrap").hidden = !isTime;
@@ -1419,6 +1519,363 @@ var FIREBASE_CONFIG = {
       saveTitle(next.trim());
     }
   });
+
+  // ══════════ 시간표 블록 간단 팝업 ══════════
+  var peekEl = null, peekBack = null;
+
+  function closePeek(){
+    if (peekEl){ peekEl.remove(); peekEl = null; }
+    if (peekBack){ peekBack.remove(); peekBack = null; }
+  }
+
+  function peekRow(k, valueNode){
+    var row = el("div", "prow");
+    row.appendChild(el("span", "pk", k));
+    var v = el("div", "pv");
+    v.appendChild(valueNode);
+    row.appendChild(v);
+    return row;
+  }
+
+  function transNode(mode, t1, t2, memo){
+    var frag = document.createDocumentFragment();
+    frag.appendChild(el("span", "pmode" + (mode === "car" ? " car" : ""), transLabel(mode)));
+    var times = t1 ? (formatTime(t1) + (t2 ? " → " + formatTime(t2) : "")) : "";
+    if (times) frag.appendChild(document.createTextNode(times));
+    if (memo) frag.appendChild(el("span", "pmemo", memo));
+    return frag;
+  }
+
+  /** 가는 길 / 일정 / 오는 길 을 한 장으로 */
+  function openPeek(id, anchorEl){
+    var it = state.items.get(id);
+    if (!it) return;
+    closePeek();
+
+    peekBack = el("div", "peek-back");
+    peekBack.addEventListener("click", closePeek);
+    document.body.appendChild(peekBack);
+
+    var box = el("div", "peek");
+    applyItemColor(box, it);
+
+    var h = el("h3");
+    h.appendChild(document.createTextNode(it.title));
+    h.appendChild(el("span", "ptype", typeInfo(it.type).label));
+    box.appendChild(h);
+
+    if (it.goType && it.goType !== "none"){
+      box.appendChild(peekRow("가는 길", transNode(it.goType, it.goStart, it.goEnd, it.goNote)));
+    }
+
+    var mainFrag = document.createDocumentFragment();
+    var mainTime = el("span", null, formatTime(it.start) + " ~ " + formatTime(it.end));
+    mainFrag.appendChild(mainTime);
+    if (it.place) mainFrag.appendChild(el("span", "pmemo", it.place));
+    if (it.note) mainFrag.appendChild(el("span", "pmemo", "준비물 · " + it.note));
+    var mainRow = peekRow("일정", mainFrag);
+    mainRow.querySelector(".pv").classList.add("main");
+    box.appendChild(mainRow);
+
+    if (it.backType && it.backType !== "none"){
+      box.appendChild(peekRow("오는 길", transNode(it.backType, it.backStart, it.backEnd, it.backNote)));
+    }
+
+    var acts = el("div", "pactions");
+    var close = el("button", null, "닫기");
+    close.type = "button";
+    close.addEventListener("click", closePeek);
+    if (state.readOnly){
+      // 아이 계정 — 수정 버튼 없음
+      var more = el("button", null, "알림 설정");
+      more.type = "button";
+      more.addEventListener("click", function(){ closePeek(); openDetail(id); });
+      acts.appendChild(close);
+      acts.appendChild(more);
+    } else {
+      var edit = el("button", "main", "수정");
+      edit.type = "button";
+      edit.addEventListener("click", function(){ closePeek(); openEdit(id); });
+      acts.appendChild(close);
+      acts.appendChild(edit);
+    }
+    box.appendChild(acts);
+
+    document.body.appendChild(box);
+    peekEl = box;
+
+    // 눌린 블록 옆에 띄우되 화면 밖으로 나가지 않게
+    var r = anchorEl.getBoundingClientRect();
+    var bw = box.offsetWidth, bh = box.offsetHeight;
+    var left = r.left + r.width / 2 - bw / 2;
+    left = Math.max(12, Math.min(left, window.innerWidth - bw - 12));
+    var top = r.bottom + 8;
+    if (top + bh > window.innerHeight - 12) top = Math.max(12, r.top - bh - 8);
+    box.style.left = Math.round(left) + "px";
+    box.style.top = Math.round(top) + "px";
+  }
+
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") closePeek(); });
+  window.addEventListener("resize", closePeek);
+
+  // ══════════ 알림 · 캘린더 ══════════
+  var ALARM_KEY = "schedule_alarm_prefs";
+  var alarmPrefs = { lead: 10, trans: true, off: {} };   // off: 일정별 끔 목록(기기별)
+  try {
+    var saved = JSON.parse(localStorage.getItem(ALARM_KEY) || "{}");
+    if (saved && typeof saved === "object"){
+      if (saved.lead) alarmPrefs.lead = parseInt(saved.lead, 10) || 10;
+      if (typeof saved.trans === "boolean") alarmPrefs.trans = saved.trans;
+      if (saved.off && typeof saved.off === "object") alarmPrefs.off = saved.off;
+    }
+  } catch(e){}
+  function saveAlarmPrefs(){
+    try { localStorage.setItem(ALARM_KEY, JSON.stringify(alarmPrefs)); } catch(e){}
+  }
+  function alarmOn(id){ return !alarmPrefs.off[id]; }
+
+  function alarmMsg(text, kind){
+    var m = document.getElementById("alarmMsg");
+    m.textContent = text || "";
+    m.className = "gate-msg" + (kind ? " " + kind : "");
+  }
+
+  function refreshPermHint(){
+    var hint = document.getElementById("permHint");
+    var btn = document.getElementById("permBtn");
+    if (!("Notification" in window)){
+      hint.textContent = "이 브라우저는 알림을 지원하지 않아요.";
+      btn.hidden = true; return;
+    }
+    if (Notification.permission === "granted"){
+      hint.textContent = "켜져 있습니다. 앱이 열려 있는 동안 다음 일정을 알려줍니다.";
+      btn.hidden = true;
+    } else if (Notification.permission === "denied"){
+      hint.textContent = "차단되어 있어요. 크롬 설정 → 사이트 설정 → 알림에서 허용해 주세요.";
+      btn.hidden = true;
+    } else {
+      hint.textContent = "허용하면 앱이 열려 있는 동안 다음 일정을 알려줍니다.";
+      btn.hidden = false;
+    }
+  }
+
+  // ── 앱이 열려 있는 동안의 알림 ──
+  var firedKeys = {};
+  function alarmTick(){
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    var now = new Date();
+    var today = jsDayToOurDay(now.getDay());
+    var nowMin = now.getHours() * 60 + now.getMinutes();
+    var stamp = now.getFullYear() + "-" + (now.getMonth()+1) + "-" + now.getDate();
+
+    itemsForDay(today).forEach(function(it){
+      if (!alarmOn(it.id)) return;
+
+      function maybeFire(kind, atMin, lead, title, body){
+        if (atMin == null) return;
+        var fireAt = atMin - lead;
+        if (nowMin < fireAt || nowMin > fireAt + 2) return;   // 2분 안에 한 번
+        var key = stamp + "|" + it.id + "|" + kind;
+        if (firedKeys[key]) return;
+        firedKeys[key] = true;
+        try { new Notification(title, { body: body, tag: key, icon: "icon-192.png" }); } catch(e){}
+      }
+
+      maybeFire("start", minutesOf(it.start), alarmPrefs.lead,
+        it.title, formatTime(it.start) + " 시작" + (it.place ? " · " + it.place : "") +
+        (it.note ? "\n준비물: " + it.note : ""));
+
+      if (alarmPrefs.trans){
+        if (it.goType && it.goType !== "none" && it.goStart){
+          maybeFire("go", minutesOf(it.goStart), 5,
+            it.title + " 가는 길",
+            transLabel(it.goType) + " " + formatTime(it.goStart) +
+            (it.goNote ? " · " + it.goNote : ""));
+        }
+        if (it.backType && it.backType !== "none" && it.backStart){
+          maybeFire("back", minutesOf(it.backStart), 5,
+            it.title + " 오는 길",
+            transLabel(it.backType) + " " + formatTime(it.backStart) +
+            (it.backNote ? " · " + it.backNote : ""));
+        }
+      }
+    });
+  }
+  setInterval(alarmTick, 60000);
+
+  // ── 캘린더(.ics) 내보내기 ──
+  var ICS_DAYS = ["MO","TU","WE","TH","FR","SA","SU"];
+  function icsEsc(t){
+    return String(t || "").replace(/\\/g, "\\\\").replace(/;/g, "\;")
+      .replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  }
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  /** 오늘 이후 가장 가까운 해당 요일의 날짜 */
+  function nextDateFor(dayIdx){
+    var d = new Date();
+    var cur = jsDayToOurDay(d.getDay());
+    var diff = (dayIdx - cur + 7) % 7;
+    d.setDate(d.getDate() + diff);
+    return d;
+  }
+  function icsStamp(date, hhmm){
+    var m = minutesOf(hhmm);
+    return date.getFullYear() + pad(date.getMonth()+1) + pad(date.getDate()) +
+           "T" + pad(Math.floor(m/60)) + pad(m%60) + "00";
+  }
+  function icsEvent(uid, days, start, end, summary, location, desc, leadMin){
+    var base = nextDateFor(days[0]);
+    var lines = [];
+    lines.push("BEGIN:VEVENT");
+    lines.push("UID:" + uid);
+    lines.push("DTSTAMP:" + new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, ""));
+    lines.push("DTSTART;TZID=Asia/Seoul:" + icsStamp(base, start));
+    lines.push("DTEND;TZID=Asia/Seoul:" + icsStamp(base, minutesOf(end) > minutesOf(start) ? end : start));
+    lines.push("RRULE:FREQ=WEEKLY;BYDAY=" + days.map(function(d){ return ICS_DAYS[d]; }).join(","));
+    lines.push("SUMMARY:" + icsEsc(summary));
+    if (location) lines.push("LOCATION:" + icsEsc(location));
+    if (desc) lines.push("DESCRIPTION:" + icsEsc(desc));
+    lines.push("BEGIN:VALARM");
+    lines.push("TRIGGER:-PT" + leadMin + "M");
+    lines.push("ACTION:DISPLAY");
+    lines.push("DESCRIPTION:" + icsEsc(summary));
+    lines.push("END:VALARM");
+    lines.push("END:VEVENT");
+    return lines;
+  }
+  function buildICS(){
+    var out = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//우리 아이 시간표//KO","CALSCALE:GREGORIAN","METHOD:PUBLISH",
+      "BEGIN:VTIMEZONE","TZID:Asia/Seoul","BEGIN:STANDARD","DTSTART:19700101T000000",
+      "TZOFFSETFROM:+0900","TZOFFSETTO:+0900","TZNAME:KST","END:STANDARD","END:VTIMEZONE"];
+    var n = 0;
+    state.items.forEach(function(it){
+      var days = daysOf(it);
+      if (!days.length || !alarmOn(it.id)) return;
+      n++;
+      var desc = [];
+      if (it.note) desc.push("준비물: " + it.note);
+      if (it.goType && it.goType !== "none"){
+        desc.push("가는 길: " + transLabel(it.goType) +
+          (it.goStart ? " " + formatTime(it.goStart) : "") + (it.goNote ? " · " + it.goNote : ""));
+      }
+      if (it.backType && it.backType !== "none"){
+        desc.push("오는 길: " + transLabel(it.backType) +
+          (it.backStart ? " " + formatTime(it.backStart) : "") + (it.backNote ? " · " + it.backNote : ""));
+      }
+      out = out.concat(icsEvent(it.id + "-main@schedule", days, it.start, it.end,
+        it.title, it.place, desc.join("\n"), alarmPrefs.lead));
+
+      if (alarmPrefs.trans){
+        if (it.goType && it.goType !== "none" && it.goStart && it.goEnd){
+          out = out.concat(icsEvent(it.id + "-go@schedule", days, it.goStart, it.goEnd,
+            it.title + " 가는 길 (" + transLabel(it.goType) + ")", it.place, it.goNote || "", 5));
+        }
+        if (it.backType && it.backType !== "none" && it.backStart && it.backEnd){
+          out = out.concat(icsEvent(it.id + "-back@schedule", days, it.backStart, it.backEnd,
+            it.title + " 오는 길 (" + transLabel(it.backType) + ")", it.place, it.backNote || "", 5));
+        }
+      }
+    });
+    out.push("END:VCALENDAR");
+    return { text: out.join("\r\n"), count: n };
+  }
+  function downloadICS(){
+    var r = buildICS();
+    if (!r.count){ alarmMsg("내보낼 일정이 없어요.", "err"); return; }
+    try {
+      var blob = new Blob([r.text], { type: "text/calendar;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "schedule.ics";  // 안드로이드가 확장자를 알아보도록 ASCII 파일명
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+      alarmMsg("일정 " + r.count + "개를 내려받았어요. 파일을 눌러 캘린더에 추가하세요.", "ok");
+    } catch(e){ alarmMsg("내려받기에 실패했어요.", "err"); }
+  }
+
+  // ── 일정 상세 (보기 전용 계정) ──
+  var detailId = null;
+  function openDetail(id){
+    var it = state.items.get(id);
+    if (!it) return;
+    detailId = id;
+    document.getElementById("detailTitle").textContent = it.title;
+    var box = document.getElementById("detailBody");
+    box.innerHTML = "";
+    function line(k, v){
+      if (!v) return;
+      var row = el("div", "detail-line");
+      row.appendChild(el("span", "k", k));
+      row.appendChild(el("span", "v", v));
+      box.appendChild(row);
+    }
+    line("시간", formatTime(it.start) + " ~ " + formatTime(it.end));
+    var rep = daysLabel(it);
+    line("요일", rep || DAY_LABELS[daysOf(it)[0]] + "요일");
+    line("구분", typeInfo(it.type).label);
+    line("장소", it.place);
+    if (it.goType && it.goType !== "none"){
+      line("가는 길", transLabel(it.goType) +
+        (it.goStart ? " " + formatTime(it.goStart) + (it.goEnd ? " → " + formatTime(it.goEnd) : "") : "") +
+        (it.goNote ? "\n" + it.goNote : ""));
+    }
+    if (it.backType && it.backType !== "none"){
+      line("오는 길", transLabel(it.backType) +
+        (it.backStart ? " " + formatTime(it.backStart) + (it.backEnd ? " → " + formatTime(it.backEnd) : "") : "") +
+        (it.backNote ? "\n" + it.backNote : ""));
+    }
+    line("준비물", it.note);
+    document.getElementById("detailAlarmChk").checked = alarmOn(id);
+    document.getElementById("detailOverlay").hidden = false;
+  }
+  document.getElementById("detailClose").addEventListener("click", function(){
+    document.getElementById("detailOverlay").hidden = true;
+  });
+  document.getElementById("detailOverlay").addEventListener("click", function(e){
+    if (e.target === this) this.hidden = true;
+  });
+  document.getElementById("detailAlarmChk").addEventListener("change", function(){
+    if (!detailId) return;
+    if (this.checked) delete alarmPrefs.off[detailId];
+    else alarmPrefs.off[detailId] = true;
+    saveAlarmPrefs();
+  });
+
+  // ── 알림 모달 이벤트 ──
+  document.getElementById("alarmBtn").addEventListener("click", function(){
+    alarmMsg("");
+    refreshPermHint();
+    document.getElementById("leadSel").value = String(alarmPrefs.lead);
+    document.getElementById("transAlarmChk").checked = alarmPrefs.trans;
+    document.getElementById("alarmOverlay").hidden = false;
+  });
+  document.getElementById("alarmClose").addEventListener("click", function(){
+    document.getElementById("alarmOverlay").hidden = true;
+  });
+  document.getElementById("alarmOverlay").addEventListener("click", function(e){
+    if (e.target === this) this.hidden = true;
+  });
+  document.getElementById("permBtn").addEventListener("click", function(){
+    if (!("Notification" in window)) return;
+    Notification.requestPermission().then(function(){
+      refreshPermHint();
+      if (Notification.permission === "granted"){
+        try { new Notification("알림이 켜졌어요", { body: "앱이 열려 있는 동안 다음 일정을 알려드릴게요.", icon: "icon-192.png" }); } catch(e){}
+      }
+    });
+  });
+  document.getElementById("leadSel").addEventListener("change", function(){
+    alarmPrefs.lead = parseInt(this.value, 10) || 10;
+    saveAlarmPrefs();
+  });
+  document.getElementById("transAlarmChk").addEventListener("change", function(){
+    alarmPrefs.trans = this.checked;
+    saveAlarmPrefs();
+  });
+  document.getElementById("icsBtn").addEventListener("click", downloadICS);
 
   // ---- db wiring ----
   var db = null;
