@@ -2,8 +2,8 @@
    앱 껍데기를 캐시해서 오프라인에서도 열리게 한다.
    일정 데이터는 Firebase가 따로 오프라인 캐시를 관리한다. */
 
-var CACHE = "schedule-v1";
-var SHELL = ["./", "./index.html", "./manifest.json",
+var CACHE = "schedule-v2";
+var SHELL = ["./", "./index.html", "./manifest.json", "./privacy.html",
              "./icon-192.png", "./icon-512.png", "./icon-512-maskable.png"];
 
 self.addEventListener("install", function(e){
