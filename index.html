@@ -372,6 +372,48 @@ var FIREBASE_CONFIG = {
   .trans-block .timesel select{ background:var(--surface); font-size:.86rem; padding:8px 6px; }
   .timesel select:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
 
+  /* 보기 전용(아이 계정) — 편집 UI 감춤 */
+  body.readonly .add-btn,
+  body.readonly #exampleBanner{ display:none !important; }
+  body:not(.owner) #familyBtn{ display:none !important; }
+  body.readonly .item-row{ cursor:default; }
+  body.readonly .week-chip, body.readonly .tl-block, body.readonly .tl-trans{ cursor:default; }
+  .role-badge{
+    font-size:.62rem; font-weight:700; padding:2px 8px; border-radius:999px;
+    background:var(--accent-soft); color:var(--accent); white-space:nowrap;
+  }
+  .viewer-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 12px; border:1px solid var(--line); border-radius:var(--radius-sm);
+    font-size:.86rem;
+  }
+  .viewer-row .em{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .viewer-row button{
+    font-family:inherit; font-size:.74rem; font-weight:700; color:var(--danger);
+    background:var(--danger-bg); border:none; border-radius:999px; padding:5px 11px;
+    cursor:pointer; flex-shrink:0;
+  }
+  .viewer-list{ display:flex; flex-direction:column; gap:8px; }
+  .viewer-empty{ font-size:.84rem; color:var(--ink-faint); }
+  .role-pick{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .role-pick button{
+    font-family:inherit; font-size:.84rem; font-weight:700; padding:10px 8px;
+    border-radius:var(--radius-sm); border:1px solid var(--line-strong);
+    background:var(--surface); color:var(--ink-soft); cursor:pointer; line-height:1.35;
+  }
+  .role-pick button span{ display:block; font-size:.68rem; font-weight:500; opacity:.75; }
+  .role-pick button.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .role-pick button:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
+  .viewer-row .role-chip{
+    font-family:inherit; font-size:.66rem; font-weight:700; padding:3px 9px; border-radius:999px;
+    border:1px solid var(--line-strong); background:var(--surface-2); color:var(--ink-soft);
+    cursor:pointer; flex-shrink:0;
+  }
+  .viewer-row .role-chip.editor{ background:var(--accent-soft); color:var(--accent); border-color:var(--accent-soft); }
+  .viewer-row .right{ display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .family-add{ display:flex; gap:8px; margin-top:10px; }
+  .family-add input{ flex:1; min-width:0; }
+
   .modal-actions{ display:flex; gap:8px; margin-top:4px; }
   .btn{
     font-family:inherit; font-size:.88rem; font-weight:700; padding:11px; border-radius:var(--radius-sm);
@@ -426,6 +468,7 @@ var FIREBASE_CONFIG = {
     flex-shrink:0;
   }
   .acct .em{ max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  @media (max-width: 560px){ .acct .em{ display:none; } }
   .offline-note{
     font-size:.72rem; color:var(--danger); background:var(--danger-bg);
     border-radius:var(--radius-sm); padding:8px 12px; text-align:center;
@@ -490,7 +533,9 @@ var FIREBASE_CONFIG = {
       <div class="tagline">Together, Every Day</div>
     </div>
     <div class="acct">
+      <span class="role-badge" id="roleBadge" hidden>보기 전용</span>
       <span class="em" id="userEmail"></span>
+      <button type="button" class="linkbtn" id="familyBtn">가족 연결</button>
       <button type="button" class="linkbtn" id="logoutBtn">로그아웃</button>
     </div>
   </div>
@@ -527,7 +572,32 @@ var FIREBASE_CONFIG = {
   <div class="week-grid" id="weekGrid"></div>
   <div class="tl-wrap" id="timelineWrap" hidden><div class="tl" id="timeline"></div></div>
 
-  <footer class="hint">일정을 누르면 바로 수정할 수 있어요. 등록한 시간표는 가족이 함께 봅니다.</footer>
+  <footer class="hint" id="footHint">일정을 누르면 바로 수정할 수 있어요. 등록한 시간표는 가족이 함께 봅니다.</footer>
+</div>
+
+<div class="overlay" id="familyOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="familyTitle">
+    <h2 id="familyTitle">가족 연결</h2>
+    <p class="gate-lead">가족의 이메일을 등록하면 같은 시간표를 함께 봅니다. 상대는 먼저 그 이메일로 <b>회원가입</b>을 해둬야 해요.</p>
+    <form id="familyForm">
+      <div class="field">
+        <label>권한</label>
+        <div class="role-pick" id="rolePick">
+          <button type="button" data-role="viewer" class="active">보기만 <span>아이 · 조부모</span></button>
+          <button type="button" data-role="editor">같이 편집 <span>배우자</span></button>
+        </div>
+      </div>
+      <div class="family-add">
+        <input type="email" id="childEmail" placeholder="가족 계정 이메일" autocomplete="off">
+        <button type="submit" class="btn primary" style="flex:0 0 auto;">추가</button>
+      </div>
+    </form>
+    <p class="gate-msg" id="familyMsg"></p>
+    <div class="viewer-list" id="viewerList"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="familyClose">닫기</button>
+    </div>
+  </div>
 </div>
 
 <div class="overlay" id="overlay" hidden>
@@ -659,7 +729,11 @@ var FIREBASE_CONFIG = {
     items: new Map(),
     selectedDay: jsDayToOurDay(new Date().getDay()),
     editingId: null,
-    weekView: "list"
+    weekView: "list",
+    role: "owner",        // owner | editor | viewer
+    readOnly: false,      // viewer 이면 true
+    members: [],          // [{email, role}] — 소유자 화면에서만 채움
+    ownerEmail: ""        // 연결된 계정에서 보여줄 소유자 이메일
   };
 
   try {
@@ -766,7 +840,7 @@ var FIREBASE_CONFIG = {
     }
     row.appendChild(time);
     row.appendChild(body);
-    row.addEventListener("click", function(){ openEdit(it.id); });
+    if (!state.readOnly) row.addEventListener("click", function(){ openEdit(it.id); });
     return row;
   }
 
@@ -1051,6 +1125,17 @@ var FIREBASE_CONFIG = {
   }
 
   function renderAll(){
+    document.body.classList.toggle("readonly", state.readOnly);
+    document.body.classList.toggle("owner", state.role === "owner");
+    var badge = document.getElementById("roleBadge");
+    badge.hidden = (state.role === "owner");
+    badge.textContent = state.readOnly ? "보기 전용" : "함께 편집";
+    document.getElementById("footHint").textContent =
+      state.role === "viewer"
+        ? ("보기 전용 화면이에요. 수정은 " + (state.ownerEmail || "부모 계정") + "에서 합니다.")
+        : state.role === "editor"
+          ? ("" + (state.ownerEmail || "가족") + "의 시간표를 함께 편집하고 있어요.")
+          : "일정을 누르면 바로 수정할 수 있어요. 등록한 시간표는 가족이 함께 봅니다.";
     renderToday();
     renderDayTabs();
     renderDayList();
@@ -1206,6 +1291,7 @@ var FIREBASE_CONFIG = {
   }
 
   function openAdd(day){
+    if (state.readOnly) return;
     state.editingId = null;
     currentFormDays = [(typeof day === "number") ? day : state.selectedDay];
     document.getElementById("repeatChk").checked = false;
@@ -1230,6 +1316,7 @@ var FIREBASE_CONFIG = {
   }
 
   function openEdit(id){
+    if (state.readOnly) return;
     var it = state.items.get(id);
     if (!it) return;
     state.editingId = id;
@@ -1324,6 +1411,7 @@ var FIREBASE_CONFIG = {
   // ---- title editing ----
   var titleEl = document.getElementById("titleText");
   titleEl.addEventListener("click", function(){
+    if (state.readOnly) return;
     var current = titleEl.textContent;
     var next = window.prompt("시간표 이름을 입력하세요", current);
     if (next && next.trim()) {
@@ -1384,7 +1472,7 @@ var FIREBASE_CONFIG = {
 
   var seedAttempted = false;
   function maybeSeed(snapSize){
-    if (seedAttempted || snapSize > 0 || !itemsCol) return;
+    if (seedAttempted || snapSize > 0 || !itemsCol || state.role !== "owner") return;
     seedAttempted = true;
     var marker = db.doc("meta/app");
     marker.get().then(function(snap){
@@ -1451,6 +1539,162 @@ var FIREBASE_CONFIG = {
     };
   }
 
+  function myEmail(){
+    var u = fbAuth && fbAuth.currentUser;
+    return (u && u.email ? u.email : "").trim().toLowerCase();
+  }
+
+  /** 내 이메일이 누군가의 '아이'로 등록돼 있으면 그 부모 시간표를 보기 전용으로 연다 */
+  function resolveRole(user){
+    state.dataUid = user.uid;
+    state.role = "owner";
+    state.readOnly = false;
+    state.ownerEmail = "";
+    var email = (user.email || "").trim().toLowerCase();
+    if (!email) return Promise.resolve();
+
+    return fbStore.collection("links").doc(email).get().then(function(snap){
+      var d = snap.exists ? (snap.data() || {}) : null;
+      if (d && d.parentUid && d.parentUid !== user.uid){
+        state.dataUid = d.parentUid;
+        state.role = (d.role === "editor") ? "editor" : "viewer";
+        state.readOnly = (state.role === "viewer");
+        state.ownerEmail = d.parentEmail || "";
+      }
+    }).catch(function(){ /* 연결 기록을 못 읽으면 본인 시간표로 */ });
+  }
+
+  /** 부모 화면: 연결된 아이 목록 실시간 반영 */
+  function subscribeViewers(){
+    unsubs.push(fbStore.collection("users").doc(state.dataUid).onSnapshot(function(snap){
+      var d = snap.exists ? (snap.data() || {}) : {};
+      var viewers = Array.isArray(d.viewers) ? d.viewers : [];
+      var editors = Array.isArray(d.editors) ? d.editors : [];
+      state.members = editors.map(function(e){ return { email: e, role: "editor" }; })
+        .concat(viewers.filter(function(e){ return editors.indexOf(e) === -1; })
+                       .map(function(e){ return { email: e, role: "viewer" }; }));
+      renderViewers();
+    }, function(){}));
+  }
+
+  function renderViewers(){
+    var box = document.getElementById("viewerList");
+    box.innerHTML = "";
+    if (!state.members.length){
+      box.appendChild(el("p", "viewer-empty", "아직 연결된 가족 계정이 없습니다."));
+      return;
+    }
+    state.members.forEach(function(m){
+      var row = el("div", "viewer-row");
+      row.appendChild(el("span", "em", m.email));
+      var right = el("div", "right");
+      var chip = el("button", "role-chip" + (m.role === "editor" ? " editor" : ""),
+                    m.role === "editor" ? "같이 편집" : "보기만");
+      chip.type = "button";
+      chip.title = "눌러서 권한 바꾸기";
+      chip.addEventListener("click", function(){
+        setMemberRole(m.email, m.role === "editor" ? "viewer" : "editor");
+      });
+      right.appendChild(chip);
+      var rm = el("button", null, "해제");
+      rm.type = "button";
+      rm.addEventListener("click", function(){ removeViewer(m.email); });
+      right.appendChild(rm);
+      row.appendChild(right);
+      box.appendChild(row);
+    });
+  }
+
+  function familyMsg(text, kind){
+    var m = document.getElementById("familyMsg");
+    m.textContent = text || "";
+    m.className = "gate-msg" + (kind ? " " + kind : "");
+  }
+
+  /** 구성원 추가 · 권한 변경 공용 */
+  function writeMember(email, role){
+    var uid = state.dataUid;
+    var FV = firebase.firestore.FieldValue;
+    var patch = role === "editor"
+      ? { editors: FV.arrayUnion(email), viewers: FV.arrayRemove(email) }
+      : { viewers: FV.arrayUnion(email), editors: FV.arrayRemove(email) };
+    return fbStore.collection("users").doc(uid).set(patch, { merge: true })
+      .then(function(){
+        return fbStore.collection("links").doc(email).set({
+          parentUid: uid, parentEmail: myEmail(), role: role, updatedAt: Date.now()
+        });
+      });
+  }
+
+  function addViewer(email, role){
+    email = (email || "").trim().toLowerCase();
+    role = role === "editor" ? "editor" : "viewer";
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+      familyMsg("이메일 형식을 확인해 주세요.", "err"); return;
+    }
+    if (email === myEmail()){
+      familyMsg("본인 계정은 추가할 수 없어요.", "err"); return;
+    }
+    for (var i = 0; i < state.members.length; i++){
+      if (state.members[i].email === email){
+        familyMsg("이미 연결된 계정입니다. 아래에서 권한을 바꿀 수 있어요.", "err"); return;
+      }
+    }
+    familyMsg("연결 중…");
+    writeMember(email, role)
+      .then(function(){
+        document.getElementById("childEmail").value = "";
+        familyMsg(role === "editor"
+          ? "연결했습니다. 그 계정으로 로그인하면 함께 편집할 수 있어요."
+          : "연결했습니다. 그 계정으로 로그인하면 보기 전용으로 시간표가 보입니다.", "ok");
+      })
+      .catch(function(){ familyMsg("연결에 실패했어요. 보안 규칙이 최신인지 확인해 주세요.", "err"); });
+  }
+
+  function setMemberRole(email, role){
+    familyMsg("권한 바꾸는 중…");
+    writeMember(email, role)
+      .then(function(){
+        familyMsg(role === "editor" ? "'같이 편집'으로 바꿨습니다." : "'보기만'으로 바꿨습니다.", "ok");
+      })
+      .catch(function(){ familyMsg("권한 변경에 실패했어요.", "err"); });
+  }
+
+  function removeViewer(email){
+    var FV = firebase.firestore.FieldValue;
+    familyMsg("해제 중…");
+    fbStore.collection("users").doc(state.dataUid)
+      .set({ viewers: FV.arrayRemove(email), editors: FV.arrayRemove(email) }, { merge: true })
+      .then(function(){ return fbStore.collection("links").doc(email).delete(); })
+      .then(function(){ familyMsg("연결을 해제했습니다.", "ok"); })
+      .catch(function(){ familyMsg("해제에 실패했어요.", "err"); });
+  }
+
+  document.getElementById("familyBtn").addEventListener("click", function(){
+    familyMsg("");
+    renderViewers();
+    document.getElementById("familyOverlay").hidden = false;
+  });
+  document.getElementById("familyClose").addEventListener("click", function(){
+    document.getElementById("familyOverlay").hidden = true;
+  });
+  document.getElementById("familyOverlay").addEventListener("click", function(e){
+    if (e.target === document.getElementById("familyOverlay")) this.hidden = true;
+  });
+  var pendingRole = "viewer";
+  Array.prototype.forEach.call(document.querySelectorAll("#rolePick button"), function(b){
+    b.addEventListener("click", function(){
+      pendingRole = b.getAttribute("data-role");
+      Array.prototype.forEach.call(document.querySelectorAll("#rolePick button"), function(x){
+        x.classList.toggle("active", x === b);
+      });
+    });
+  });
+  document.getElementById("familyForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    addViewer(document.getElementById("childEmail").value, pendingRole);
+  });
+
   function subscribeData(){
     unsubs.push(itemsCol.orderBy("sortKey").onSnapshot(function(snap){
       var map = new Map();
@@ -1478,6 +1722,11 @@ var FIREBASE_CONFIG = {
     unsubs.forEach(function(u){ try { u(); } catch(e){} });
     unsubs = [];
     state.items = new Map();
+    state.readOnly = false;
+    state.role = "owner";
+    state.members = [];
+    state.ownerEmail = "";
+    state.dataUid = null;
     db = null; itemsCol = null; userRoot = null;
     seedAttempted = false;
   }
@@ -1510,13 +1759,16 @@ var FIREBASE_CONFIG = {
 
     fbAuth.onAuthStateChanged(function(user){
       if (user){
-        userRoot = fbStore.collection("users").doc(user.uid);
-        db = makeShim(userRoot);
-        itemsCol = userRoot.collection("items");
         document.getElementById("userEmail").textContent = user.email || "";
-        showGate("app");
-        renderAll();
-        subscribeData();
+        resolveRole(user).then(function(){
+          userRoot = fbStore.collection("users").doc(state.dataUid);
+          db = makeShim(userRoot);
+          itemsCol = userRoot.collection("items");
+          showGate("app");
+          renderAll();
+          subscribeData();
+          if (state.role === "owner") subscribeViewers();
+        });
       } else {
         clearData();
         showGate("auth");
