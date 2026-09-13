@@ -1,0 +1,1453 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3D6B4F">
+<meta name="description" content="부모가 등록하고 아이가 확인하는 학교·학원 주간 시간표">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>우리 아이 시간표</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* 단일 라이트 테마 — 기기 설정과 무관하게 항상 흰 배경 */
+  :root, :root[data-theme="dark"], :root[data-theme="light"]{
+    --bg:#FFFFFF;
+    --surface:#FFFFFF;
+    --surface-2:#F2F5F0;
+    --ink:#1E2620;
+    --ink-soft:#5C6A5E;
+    --ink-faint:#8D9A8E;
+    --line:#E4E8E0;
+    --line-strong:#CBD4C6;
+    --accent:#3D6B4F;
+    --accent-soft:#EAF2EB;
+    --accent-ink:#FFFFFF;
+    --school:#3D6B4F;
+    --school-bg:#E9F2EB;
+    --academy:#C1642E;
+    --academy-bg:#FAEDE3;
+    --pickup:#33628F;
+    --pickup-bg:#E6EFF7;
+    --other:#7B58A8;
+    --other-bg:#EFE8F7;
+    --danger:#B0473E;
+    --danger-bg:#F9E9E6;
+    --shadow: 0 1px 2px rgba(30,38,32,0.05), 0 6px 18px -10px rgba(30,38,32,0.22);
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+    color-scheme: light;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding:0 16px;
+    padding-block:20px 60px;
+  }
+  .wrap{ max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:18px; }
+
+  /* header */
+  .topbar{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .brand h1{
+    font-family:'Gowun Batang', serif;
+    font-weight:700;
+    font-size:1.6rem;
+    margin:0 0 2px 0;
+    text-wrap:balance;
+    cursor:text;
+  }
+  .brand .tagline{
+    font-size:.68rem;
+    letter-spacing:.14em;
+    color:var(--ink-faint);
+    font-weight:600;
+    text-transform:uppercase;
+  }
+
+  /* example banner */
+  .banner{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--accent-soft); border:1px solid var(--line-strong);
+    border-radius:var(--radius-md); padding:10px 14px; font-size:.82rem; color:var(--ink-soft);
+  }
+  .banner button{
+    font-family:inherit; font-size:.76rem; font-weight:700; color:var(--accent);
+    background:var(--surface); border:1px solid var(--line-strong); border-radius:999px;
+    padding:6px 12px; cursor:pointer; flex-shrink:0;
+  }
+
+  /* today hero */
+  .today-card{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius-lg); padding:18px 18px 16px; box-shadow:var(--shadow);
+  }
+  .today-head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .today-head .day{ font-family:'Gowun Batang', serif; font-size:1.3rem; font-weight:700; }
+  .today-head .sub{ font-size:.78rem; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+  .empty-state{ display:flex; flex-direction:column; align-items:flex-start; gap:10px; padding:6px 0 2px; }
+  .empty-state p{ font-size:.86rem; color:var(--ink-faint); margin:0; }
+
+  .item-list{ display:flex; flex-direction:column; gap:8px; }
+
+  .item-row{
+    display:flex; gap:12px; align-items:flex-start;
+    background:var(--surface); border:1px solid var(--line);
+    border-left:4px solid var(--type-color, var(--accent));
+    border-radius:var(--radius-sm); padding:10px 12px;
+    cursor:pointer; text-align:left; width:100%; font-family:inherit; color:inherit;
+    transition:border-color .15s;
+  }
+  .item-row:hover{ border-color:var(--line-strong); border-left-color:var(--type-color, var(--accent)); }
+  .item-row:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .item-row.past{ opacity:.5; }
+  .item-time{
+    font-variant-numeric:tabular-nums; font-weight:700; font-size:.82rem;
+    color:var(--ink); white-space:nowrap; padding-top:1px; min-width:44px;
+  }
+  .item-body{ flex:1; min-width:0; }
+  .item-title-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .item-title{ font-weight:600; font-size:.94rem; }
+  .item-tag{
+    font-size:.66rem; font-weight:700; padding:2px 7px; border-radius:999px;
+    background:var(--type-bg, var(--surface-2)); color:var(--type-color, var(--ink-soft));
+  }
+  .item-status{
+    font-size:.66rem; font-weight:700; padding:2px 7px; border-radius:999px;
+    background:var(--danger-bg); color:var(--danger);
+  }
+  .item-place{ font-size:.78rem; color:var(--ink-soft); margin-top:2px; }
+  .item-note{ font-size:.76rem; color:var(--ink-faint); margin-top:5px; display:flex; gap:6px; flex-wrap:wrap; }
+  .chip{ background:var(--surface-2); border-radius:6px; padding:1px 7px; }
+
+  /* transport lines */
+  .trans-list{ margin-top:6px; display:flex; flex-direction:column; gap:3px; }
+  .trans-line{ display:flex; align-items:baseline; gap:6px; font-size:.74rem; color:var(--ink-faint); flex-wrap:wrap; }
+  .trans-arrow{ color:var(--ink-faint); font-weight:700; width:12px; flex-shrink:0; }
+  .trans-mode{
+    font-weight:700; font-size:.68rem; padding:1px 7px; border-radius:999px;
+    background:var(--surface-2); color:var(--ink-soft);
+  }
+  .trans-mode.car{ background:var(--pickup-bg); color:var(--pickup); }
+  .trans-time{ font-variant-numeric:tabular-nums; font-weight:600; color:var(--ink-soft); }
+  .trans-memo{ color:var(--ink-faint); }
+
+  /* view switch */
+  .view-switch{
+    display:flex; background:var(--surface-2); border-radius:999px;
+    padding:3px; border:1px solid var(--line); flex-shrink:0;
+  }
+  .view-switch button{
+    border:none; background:transparent; cursor:pointer; font-family:inherit;
+    font-size:.74rem; font-weight:700; padding:5px 12px; border-radius:999px; color:var(--ink-soft);
+  }
+  .view-switch button.active{ background:var(--accent); color:var(--accent-ink); }
+  .view-switch button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* timeline view — 가로 스크롤 없이 7일 한 화면 */
+  .tl-wrap{ padding-bottom:2px; }
+  .tl{ display:grid; width:100%; }
+  .tl-corner{ border-bottom:1px solid var(--line); }
+  .tl-head{
+    font-size:.68rem; font-weight:700; text-align:center; padding:5px 0;
+    border-bottom:1px solid var(--line); color:var(--ink-soft);
+  }
+  .tl-head.is-today{ color:var(--accent); }
+  .tl-gutter{ position:relative; }
+  .tl-hour{
+    position:absolute; right:4px; font-size:.55rem; color:var(--ink-faint);
+    font-variant-numeric:tabular-nums; transform:translateY(-2px);
+  }
+  .tl-col{ position:relative; border-left:1px solid var(--line); min-width:0; }
+  .tl-block{
+    position:absolute; border-radius:5px; padding:2px 3px; overflow:hidden;
+    font-size:.55rem; line-height:1.2; cursor:pointer; font-family:inherit;
+    text-align:left; border:none; border-left:2px solid var(--type-color, var(--accent));
+    background:var(--type-bg, var(--surface-2)); color:var(--ink);
+    display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start;
+    word-break:keep-all; overflow-wrap:break-word;
+  }
+  .tl-block:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  .tl-trans{
+    position:absolute; border-radius:4px; border:1px dashed var(--line-strong);
+    font-family:inherit; font-size:.5rem; font-weight:700; line-height:1;
+    letter-spacing:-.03em; text-align:center; padding:0 1px; cursor:pointer;
+    overflow:hidden; white-space:nowrap;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tl-trans:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+
+  /* day tabs */
+  .day-tabs{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .day-tab{
+    font-family:inherit; border:1px solid var(--line); background:var(--surface);
+    border-radius:var(--radius-sm); padding:8px 2px 7px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--ink-soft);
+  }
+  .day-tab .lbl{ font-size:.8rem; font-weight:700; }
+  .day-tab .cnt{ font-size:.62rem; color:var(--ink-faint); }
+  .day-tab.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .day-tab.active .cnt{ color:var(--accent-ink); opacity:.8; }
+  .day-tab.is-today{ box-shadow:0 0 0 2px var(--accent-soft) inset; }
+  .day-tab:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .section-title{
+    font-size:.86rem; font-weight:700; color:var(--ink-soft); margin:2px 0 -6px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .add-btn{
+    font-family:inherit; font-size:.78rem; font-weight:700; color:var(--accent-ink);
+    background:var(--accent); border:none; border-radius:999px; padding:7px 14px; cursor:pointer;
+  }
+  .add-btn:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
+  .add-btn.ghost{ background:var(--surface); color:var(--accent); border:1px solid var(--line-strong); }
+
+  .day-panel{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg);
+    padding:14px; display:flex; flex-direction:column; gap:8px; box-shadow:var(--shadow);
+  }
+
+  /* weekly overview — 가로 스크롤 없이 7일 한 화면 */
+  .week-grid{
+    display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px;
+  }
+  .week-col{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .week-col-head{
+    font-size:.7rem; font-weight:700; color:var(--ink-soft); text-align:center;
+    padding-bottom:4px; border-bottom:1px solid var(--line);
+  }
+  .week-col-head.is-today{ color:var(--accent); }
+  .week-chip{
+    position:relative; font-size:.58rem; line-height:1.25; border-radius:6px; padding:4px 4px 4px 5px;
+    background:var(--type-bg, var(--surface-2)); color:var(--ink); cursor:pointer;
+    border:none; border-left:3px solid var(--type-color, var(--accent));
+    font-family:inherit; text-align:left; width:100%; min-width:0; overflow:hidden;
+  }
+  .week-chip:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  .week-chip b{
+    font-variant-numeric:tabular-nums; display:block; color:var(--type-color, var(--ink));
+    font-size:.58rem; letter-spacing:-.03em; line-height:1.15;
+  }
+  .week-chip .wend{ display:block; font-weight:600; opacity:.72; }
+  .week-chip .wtitle{
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden; word-break:keep-all; overflow-wrap:break-word; margin-top:1px;
+  }
+  .week-item{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .week-trans{
+    font-size:.52rem; line-height:1.1; text-align:center; padding:2px 1px;
+    border-radius:5px; border:1px solid transparent; letter-spacing:-.03em;
+    font-weight:700; overflow:hidden; white-space:nowrap;
+  }
+  .week-trans.walk{ border-style:dashed; }
+  .week-empty{ font-size:.64rem; color:var(--ink-faint); text-align:center; padding:8px 0; }
+
+  footer.hint{ text-align:center; font-size:.72rem; color:var(--ink-faint); padding-top:4px; }
+
+  /* modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(15,20,14,.42); display:flex;
+    align-items:flex-end; justify-content:center; z-index:50; padding:0;
+  }
+  @media (min-width:560px){ .overlay{ align-items:center; padding:20px; } }
+  .modal{
+    background:var(--surface); width:100%; max-width:480px; max-height:92vh; overflow-y:auto;
+    border-radius:20px 20px 0 0; padding:20px 20px 24px; display:flex; flex-direction:column; gap:14px;
+    box-shadow:var(--shadow);
+  }
+  @media (min-width:560px){ .modal{ border-radius:var(--radius-lg); } }
+  .modal h2{ font-family:'Gowun Batang', serif; font-size:1.15rem; margin:0; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size:.76rem; font-weight:700; color:var(--ink-soft); }
+  .field .sublabel{ font-weight:500; color:var(--ink-faint); }
+  .field input[type="text"], .field input[type="time"], .field textarea{
+    font-family:inherit; font-size:.92rem; padding:9px 11px; border-radius:var(--radius-sm);
+    border:1px solid var(--line-strong); background:var(--bg); color:var(--ink); width:100%;
+  }
+  .field textarea{ resize:vertical; min-height:44px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .type-pick{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .type-pick button{
+    font-family:inherit; font-size:.76rem; font-weight:700; padding:8px 4px; border-radius:var(--radius-sm);
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); cursor:pointer;
+  }
+  .type-pick button.active{ background:var(--type-bg); color:var(--type-color); border-color:var(--type-color); }
+  .day-pick{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .day-pick button{
+    font-family:inherit; font-size:.8rem; font-weight:700; padding:8px 0; border-radius:var(--radius-sm);
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); cursor:pointer;
+  }
+  .day-pick button.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+
+  .trans-block{
+    border:1px solid var(--line); border-radius:var(--radius-md); padding:12px;
+    display:flex; flex-direction:column; gap:8px; background:var(--bg);
+  }
+  .trans-block .head{ display:flex; align-items:center; gap:6px; }
+  .trans-block .head .arr{ color:var(--ink-faint); font-weight:700; }
+  .trans-block .head .ttl{ font-size:.78rem; font-weight:700; color:var(--ink); }
+  .trans-block .head .hintx{ font-size:.7rem; color:var(--ink-faint); }
+  .trans-pick{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .trans-pick button{
+    font-family:inherit; font-size:.78rem; font-weight:700; padding:8px 4px; border-radius:var(--radius-sm);
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); cursor:pointer;
+  }
+  .trans-pick button.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .trans-block input[type="text"]{
+    font-family:inherit; font-size:.86rem; padding:8px 11px; border-radius:var(--radius-sm);
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); width:100%;
+  }
+  .trans-times{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .tfield{ display:flex; flex-direction:column; gap:4px; }
+  .tfield label{ font-size:.7rem; font-weight:600; color:var(--ink-faint); }
+  .tfield input[type="time"]{
+    font-family:inherit; font-size:.86rem; padding:8px 10px; border-radius:var(--radius-sm);
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); width:100%;
+  }
+
+  .color-pick{ display:flex; flex-wrap:wrap; gap:8px; }
+  .color-pick button{
+    width:34px; height:34px; border-radius:50%; cursor:pointer; padding:0;
+    border:2px solid transparent; background:var(--sw, var(--surface-2));
+    box-shadow:0 0 0 1px var(--line-strong) inset; position:relative;
+  }
+  .color-pick button.active{ border-color:var(--ink); box-shadow:none; }
+  .color-pick button.auto{
+    background:var(--surface); font-family:inherit; font-size:.6rem; font-weight:700;
+    color:var(--ink-soft); width:auto; padding:0 12px; border-radius:999px;
+    box-shadow:0 0 0 1px var(--line-strong) inset;
+  }
+  .color-pick button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .modal-actions{ display:flex; gap:8px; margin-top:4px; }
+  .btn{
+    font-family:inherit; font-size:.88rem; font-weight:700; padding:11px; border-radius:var(--radius-sm);
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); cursor:pointer; flex:1;
+  }
+  .btn.primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .btn.danger{ background:var(--danger-bg); border-color:var(--danger-bg); color:var(--danger); flex:none; }
+  .btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  [hidden]{ display:none !important; }
+
+  /* ── 로그인 / 설정 화면 ── */
+  .gate{
+    position:fixed; inset:0; background:var(--bg); z-index:100;
+    display:flex; align-items:center; justify-content:center; padding:24px 16px;
+    overflow-y:auto;
+  }
+  .gate-card{
+    width:100%; max-width:380px; display:flex; flex-direction:column; gap:16px;
+  }
+  .gate-brand h1{
+    font-family:'Gowun Batang', serif; font-size:1.7rem; margin:0 0 3px; font-weight:700;
+  }
+  .gate-brand .tagline{
+    font-size:.68rem; letter-spacing:.14em; color:var(--ink-faint);
+    font-weight:600; text-transform:uppercase;
+  }
+  .gate-lead{ font-size:.86rem; color:var(--ink-soft); line-height:1.6; margin:0; }
+  .gate form{ display:flex; flex-direction:column; gap:10px; }
+  .gate input[type="email"], .gate input[type="password"], .gate textarea{
+    font-family:inherit; font-size:.94rem; padding:11px 12px; border-radius:var(--radius-sm);
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); width:100%;
+  }
+  .gate textarea{ min-height:120px; font-size:.78rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .gate-actions{ display:flex; gap:8px; }
+  .gate-msg{ font-size:.8rem; min-height:1.2em; margin:0; }
+  .gate-msg.err{ color:var(--danger); }
+  .gate-msg.ok{ color:var(--accent); }
+  .gate-alt{
+    display:flex; justify-content:space-between; gap:10px; font-size:.78rem; color:var(--ink-faint);
+  }
+  .linkbtn{
+    background:none; border:none; font-family:inherit; font-size:.78rem; color:var(--accent);
+    cursor:pointer; padding:0; text-decoration:underline; text-underline-offset:2px;
+  }
+  .gate-steps{ font-size:.8rem; color:var(--ink-soft); line-height:1.7; margin:0; padding-left:18px; }
+  .gate-steps code{
+    background:var(--surface-2); padding:1px 5px; border-radius:4px; font-size:.74rem;
+  }
+  .acct{
+    display:flex; align-items:center; gap:8px; font-size:.68rem; color:var(--ink-faint);
+    flex-shrink:0;
+  }
+  .acct .em{ max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .offline-note{
+    font-size:.72rem; color:var(--danger); background:var(--danger-bg);
+    border-radius:var(--radius-sm); padding:8px 12px; text-align:center;
+  }
+</style>
+</head>
+<body>
+
+
+
+<!-- 첫 실행: Firebase 설정이 비어있을 때 -->
+<div class="gate" id="setupGate" hidden>
+  <div class="gate-card">
+    <div class="gate-brand">
+      <h1>설치 마무리</h1>
+      <div class="tagline">Setup</div>
+    </div>
+    <p class="gate-lead">아직 Firebase 설정값이 들어있지 않아요. 아래 순서대로 한 번만 하면 됩니다.</p>
+    <ol class="gate-steps">
+      <li><code>console.firebase.google.com</code> 에서 프로젝트 생성</li>
+      <li>Authentication → 로그인 방법 → <b>이메일/비밀번호</b> 사용 설정</li>
+      <li>Firestore Database 생성 (프로덕션 모드)</li>
+      <li>프로젝트 설정 → 내 앱 → 웹 앱 추가 → <b>firebaseConfig</b> 복사</li>
+    </ol>
+    <form id="setupForm">
+      <textarea id="cfgInput" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "...", "appId": "..." }'></textarea>
+      <button type="submit" class="btn primary">이 기기에 적용해서 바로 써보기</button>
+    </form>
+    <p class="gate-msg" id="setupMsg"></p>
+    <p class="gate-lead">여기에 붙여넣으면 이 기기에서만 적용됩니다. 다른 사람도 쓰게 하려면 <code>index.html</code> 위쪽 <code>firebaseConfig</code> 부분에 같은 값을 넣어 다시 올리세요.</p>
+  </div>
+</div>
+
+<!-- 로그인 -->
+<div class="gate" id="authGate" hidden>
+  <div class="gate-card">
+    <div class="gate-brand">
+      <h1>우리 아이 시간표</h1>
+      <div class="tagline">Together, Every Day</div>
+    </div>
+    <p class="gate-lead">부모가 학교·학원 시간과 이동을 등록하면, 같은 계정으로 로그인한 가족 기기에서 함께 확인합니다.</p>
+    <form id="authForm">
+      <input type="email" id="authEmail" placeholder="이메일" autocomplete="username" required>
+      <input type="password" id="authPw" placeholder="비밀번호 (6자 이상)" autocomplete="current-password" required>
+      <div class="gate-actions">
+        <button type="submit" class="btn primary">로그인</button>
+        <button type="button" class="btn" id="signupBtn">회원가입</button>
+      </div>
+    </form>
+    <p class="gate-msg" id="authMsg"></p>
+    <div class="gate-alt">
+      <button type="button" class="linkbtn" id="resetBtn">비밀번호 재설정</button>
+      <span>가족은 같은 계정 사용</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="appWrap" hidden>
+  <div class="topbar">
+    <div class="brand">
+      <h1 id="titleText" title="눌러서 이름을 바꿀 수 있어요">우리 아이 시간표</h1>
+      <div class="tagline">Together, Every Day</div>
+    </div>
+    <div class="acct">
+      <span class="em" id="userEmail"></span>
+      <button type="button" class="linkbtn" id="logoutBtn">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="banner" id="exampleBanner" hidden>
+    <span>예시 일정이에요. 자유롭게 수정하거나 삭제해보세요.</span>
+    <button id="clearExamples" type="button">예시 지우기</button>
+  </div>
+
+  <div class="today-card">
+    <div class="today-head">
+      <div class="day" id="todayLabel">오늘</div>
+      <div class="sub" id="todaySub"></div>
+    </div>
+    <div id="todayList" class="item-list"></div>
+  </div>
+
+  <div class="section-title">
+    <span>요일별 시간표</span>
+    <button class="add-btn" id="addDay" type="button">+ 일정 추가</button>
+  </div>
+  <div class="day-tabs" id="dayTabs"></div>
+  <div class="day-panel">
+    <div id="dayList" class="item-list"></div>
+  </div>
+
+  <div class="section-title">
+    <span>주간 한눈에 보기</span>
+    <div class="view-switch" role="group" aria-label="주간 보기 방식">
+      <button id="swList" type="button" class="active">목록</button>
+      <button id="swTime" type="button">시간표</button>
+    </div>
+  </div>
+  <div class="week-grid" id="weekGrid"></div>
+  <div class="tl-wrap" id="timelineWrap" hidden><div class="tl" id="timeline"></div></div>
+
+  <footer class="hint">일정을 누르면 바로 수정할 수 있어요. 등록한 시간표는 가족이 함께 봅니다.</footer>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle">일정 추가</h2>
+    <form id="itemForm">
+      <div class="field">
+        <label>요일</label>
+        <div class="day-pick" id="formDayPick"></div>
+      </div>
+      <div class="field">
+        <label>구분</label>
+        <div class="type-pick" id="formTypePick"></div>
+      </div>
+      <div class="field">
+        <label for="fTitle">제목</label>
+        <input type="text" id="fTitle" placeholder="예: 수학 학원" required>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="fStart">시작 시간</label>
+          <input type="time" id="fStart" required>
+        </div>
+        <div class="field">
+          <label for="fEnd">종료 시간</label>
+          <input type="time" id="fEnd" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fPlace">장소 (선택)</label>
+        <input type="text" id="fPlace" placeholder="예: OO음악학원">
+      </div>
+
+      <div class="trans-block">
+        <div class="head">
+          <span class="arr">→</span>
+          <span class="ttl">가는 길</span>
+          <span class="hintx">시작 전 이동</span>
+        </div>
+        <div class="trans-pick" id="goPick"></div>
+        <div class="trans-times" id="goTimes" hidden>
+          <div class="tfield"><label for="fGoStart" id="goStartLabel">출발 시간</label><input type="time" id="fGoStart"></div>
+          <div class="tfield"><label for="fGoEnd" id="goEndLabel">도착 시간</label><input type="time" id="fGoEnd"></div>
+        </div>
+        <input type="text" id="fGoNote" maxlength="60" placeholder="한 줄 메모 · 예: 학교 앞에서 노란차 탑승" hidden>
+      </div>
+
+      <div class="trans-block">
+        <div class="head">
+          <span class="arr">←</span>
+          <span class="ttl">오는 길</span>
+          <span class="hintx">끝난 후 이동</span>
+        </div>
+        <div class="trans-pick" id="backPick"></div>
+        <div class="trans-times" id="backTimes" hidden>
+          <div class="tfield"><label for="fBackStart" id="backStartLabel">출발 시간</label><input type="time" id="fBackStart"></div>
+          <div class="tfield"><label for="fBackEnd" id="backEndLabel">도착 시간</label><input type="time" id="fBackEnd"></div>
+        </div>
+        <input type="text" id="fBackNote" maxlength="60" placeholder="한 줄 메모 · 예: 아파트 정문 하차, 엄마가 마중" hidden>
+      </div>
+
+      <div class="field">
+        <label for="fNote">준비물 · 메모 (선택, 쉼표로 구분)</label>
+        <textarea id="fNote" placeholder="예: 실내화, 리코더"></textarea>
+      </div>
+      <div class="field">
+        <label>색상 <span class="sublabel">· 이 일정만 다른 색으로</span></label>
+        <div class="color-pick" id="colorPick"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn danger" id="deleteBtn" hidden>삭제</button>
+        <button type="button" class="btn" id="cancelBtn">취소</button>
+        <button type="submit" class="btn primary">저장</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+<script>
+/* ===================================================================
+   ▼▼▼ 여기에 Firebase 설정값을 붙여넣으세요 (이 부분만 바꾸면 됩니다) ▼▼▼
+   Firebase 콘솔 → 프로젝트 설정 → 내 앱 → 웹 앱 → firebaseConfig
+   =================================================================== */
+var FIREBASE_CONFIG = {
+  apiKey: "여기에_붙여넣기",
+  authDomain: "여기에_붙여넣기",
+  projectId: "여기에_붙여넣기",
+  storageBucket: "여기에_붙여넣기",
+  messagingSenderId: "여기에_붙여넣기",
+  appId: "여기에_붙여넣기"
+};
+/* ▲▲▲ 여기까지 ▲▲▲ */
+</script>
+
+<script>
+(function(){
+  "use strict";
+
+  var DAY_LABELS = ["월","화","수","목","금","토","일"];
+  var TYPES = [
+    { id:"school",  label:"학교",     colorVar:"--school",  bgVar:"--school-bg",  hex:"#3D6B4F" },
+    { id:"academy", label:"학원",     colorVar:"--academy", bgVar:"--academy-bg", hex:"#C1642E" },
+    { id:"pickup",  label:"이동·픽업", colorVar:"--pickup",  bgVar:"--pickup-bg",  hex:"#33628F" },
+    { id:"other",   label:"기타",     colorVar:"--other",   bgVar:"--other-bg",   hex:"#7B58A8" }
+  ];
+  var TRANS = [
+    { id:"none", label:"없음" },
+    { id:"walk", label:"도보" },
+    { id:"car",  label:"차량" }
+  ];
+  var COLORS = ["#3D9970","#E08D3C","#4A7FBF","#8A63C4","#D66A93","#CF5B4E","#2FA3A3","#8A8F72"];
+  function typeInfo(id){ return TYPES.find(function(t){return t.id===id;}) || TYPES[3]; }
+  function hexToRgba(hex, a){
+    var h = (hex||"").replace("#","");
+    if (h.length !== 6) return "var(--surface-2)";
+    var r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+  }
+  /** 이 일정의 실제 색 — 사용자가 고른 색이 있으면 그 색, 없으면 구분 기본색 */
+  function effectiveHex(it){ return it.color || typeInfo(it.type).hex; }
+  /** 항목의 색을 CSS 변수로 element에 적용 */
+  function applyItemColor(node, it){
+    var c = effectiveHex(it);
+    node.style.setProperty("--type-color", c);
+    node.style.setProperty("--type-bg", hexToRgba(c, 0.13));
+  }
+  function transLabel(id){ var t = TRANS.find(function(x){return x.id===id;}); return t ? t.label : "없음"; }
+
+  function jsDayToOurDay(jsDay){ return (jsDay + 6) % 7; } // Mon=0..Sun=6
+
+  var state = {
+    items: new Map(),
+    selectedDay: jsDayToOurDay(new Date().getDay()),
+    editingId: null,
+    weekView: "list"
+  };
+
+  try {
+    var savedView = localStorage.getItem("schedule_week_view");
+    if (savedView === "time" || savedView === "list") state.weekView = savedView;
+  } catch(e) {}
+
+  function minutesOf(hhmm){
+    var p = (hhmm||"00:00").split(":");
+    return (parseInt(p[0],10)||0) * 60 + (parseInt(p[1],10)||0);
+  }
+  function formatTime(hhmm){
+    var m = minutesOf(hhmm);
+    var h = Math.floor(m/60), mm = m%60;
+    var period = h < 12 ? "오전" : "오후";
+    var h12 = h % 12; if (h12 === 0) h12 = 12;
+    return period + " " + h12 + ":" + (mm<10?"0":"")+mm;
+  }
+  function formatTimeShort(hhmm){
+    var m = minutesOf(hhmm);
+    return Math.floor(m/60) + ":" + (m%60<10?"0":"") + (m%60);
+  }
+  function nowMinutes(){
+    var d = new Date();
+    return d.getHours()*60 + d.getMinutes();
+  }
+
+  function itemsForDay(day){
+    var arr = [];
+    state.items.forEach(function(it){ if (it.day === day) arr.push(it); });
+    arr.sort(function(a,b){ return minutesOf(a.start) - minutesOf(b.start); });
+    return arr;
+  }
+
+  function el(tag, cls, text){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function transLine(arrow, label, mode, memo, t1, t2){
+    var line = el("div","trans-line");
+    line.appendChild(el("span","trans-arrow", arrow));
+    line.appendChild(el("span", null, label));
+    var badge = el("span","trans-mode" + (mode==="car" ? " car" : ""), transLabel(mode));
+    line.appendChild(badge);
+    if (t1 || t2){
+      var txt = t1 ? formatTime(t1) : "";
+      if (t2) txt += (t1 ? " → " : "") + formatTime(t2);
+      line.appendChild(el("span","trans-time", txt));
+    }
+    if (memo) line.appendChild(el("span","trans-memo", memo));
+    return line;
+  }
+
+  function renderItemRow(it, opts){
+    opts = opts || {};
+    var ti = typeInfo(it.type);
+    var row = el("button", "item-row" + (opts.past ? " past" : ""));
+    row.type = "button";
+    applyItemColor(row, it);
+
+    var time = el("div", "item-time", formatTime(it.start));
+    var body = el("div", "item-body");
+    var titleRow = el("div", "item-title-row");
+    titleRow.appendChild(el("span", "item-title", it.title));
+    titleRow.appendChild(el("span", "item-tag", ti.label));
+    if (opts.status) titleRow.appendChild(el("span", "item-status", opts.status));
+    body.appendChild(titleRow);
+    if (it.place) body.appendChild(el("div", "item-place", it.place));
+
+    var hasGo = it.goType && it.goType !== "none";
+    var hasBack = it.backType && it.backType !== "none";
+    if (hasGo || hasBack){
+      var tl = el("div","trans-list");
+      if (hasGo) tl.appendChild(transLine("→", "가는 길", it.goType, it.goNote, it.goStart, it.goEnd));
+      if (hasBack) tl.appendChild(transLine("←", "오는 길", it.backType, it.backNote, it.backStart, it.backEnd));
+      body.appendChild(tl);
+    }
+
+    if (it.note) {
+      var noteWrap = el("div", "item-note");
+      it.note.split(",").map(function(s){return s.trim();}).filter(Boolean).forEach(function(n){
+        noteWrap.appendChild(el("span","chip", n));
+      });
+      if (noteWrap.children.length) body.appendChild(noteWrap);
+    }
+    row.appendChild(time);
+    row.appendChild(body);
+    row.addEventListener("click", function(){ openEdit(it.id); });
+    return row;
+  }
+
+  function renderToday(){
+    var todayIdx = jsDayToOurDay(new Date().getDay());
+    var label = document.getElementById("todayLabel");
+    var sub = document.getElementById("todaySub");
+    label.textContent = "오늘 · " + DAY_LABELS[todayIdx] + "요일";
+    var d = new Date();
+    sub.textContent = (d.getMonth()+1) + "월 " + d.getDate() + "일";
+
+    var list = itemsForDay(todayIdx);
+    var container = document.getElementById("todayList");
+    container.innerHTML = "";
+    if (!list.length){
+      var empty = el("div","empty-state");
+      empty.appendChild(el("p", null, "오늘은 등록된 일정이 없어요."));
+      var b = el("button","add-btn ghost","+ 오늘 일정 추가");
+      b.type = "button";
+      b.addEventListener("click", function(){ openAdd(todayIdx); });
+      empty.appendChild(b);
+      container.appendChild(empty);
+      return;
+    }
+    var now = nowMinutes();
+    var upcomingMarked = false;
+    list.forEach(function(it){
+      var s = minutesOf(it.start), e = minutesOf(it.end);
+      var status = null, past = false;
+      if (now >= s && now < e) status = "지금";
+      else if (now < s && !upcomingMarked) { status = "다음"; upcomingMarked = true; }
+      else if (now >= e) past = true;
+      container.appendChild(renderItemRow(it, { status: status, past: past }));
+    });
+  }
+
+  function renderDayTabs(){
+    var wrap = document.getElementById("dayTabs");
+    wrap.innerHTML = "";
+    var todayIdx = jsDayToOurDay(new Date().getDay());
+    DAY_LABELS.forEach(function(lbl, i){
+      var count = itemsForDay(i).length;
+      var btn = el("button","day-tab" + (i===state.selectedDay?" active":"") + (i===todayIdx?" is-today":""));
+      btn.type = "button";
+      btn.appendChild(el("span","lbl", lbl));
+      btn.appendChild(el("span","cnt", count ? (count+"개") : "-"));
+      btn.addEventListener("click", function(){ state.selectedDay = i; renderAll(); });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function renderDayList(){
+    var list = itemsForDay(state.selectedDay);
+    var container = document.getElementById("dayList");
+    container.innerHTML = "";
+    document.getElementById("addDay").textContent = "+ " + DAY_LABELS[state.selectedDay] + "요일 추가";
+    if (!list.length){
+      var empty = el("div","empty-state");
+      empty.appendChild(el("p", null, DAY_LABELS[state.selectedDay] + "요일에는 등록된 일정이 없어요. 위 '추가'를 눌러 등록해보세요."));
+      container.appendChild(empty);
+      return;
+    }
+    list.forEach(function(it){ container.appendChild(renderItemRow(it, {})); });
+  }
+
+  /** 주간 목록의 앞뒤 이동 표기 — 일정 색을 연하게 깔아 통일감 */
+  function weekTransBar(it, which){
+    var isGo = which === "go";
+    var mode = isGo ? it.goType : it.backType;
+    if (!mode || mode === "none") return null;
+    var c = effectiveHex(it);
+    var t1 = isGo ? it.goStart : it.backStart;
+    var bar = el("div","week-trans" + (mode === "walk" ? " walk" : ""),
+                 (isGo ? "↓ " : "↑ ") + transLabel(mode));
+    bar.style.background = hexToRgba(c, 0.10);
+    bar.style.color = c;
+    bar.style.borderColor = hexToRgba(c, mode === "walk" ? 0.45 : 0.30);
+    bar.title = (isGo ? "가는 길 · " : "오는 길 · ") + transLabel(mode)
+              + (t1 ? " " + formatTimeShort(t1) : "")
+              + ((isGo ? it.goNote : it.backNote) ? " · " + (isGo ? it.goNote : it.backNote) : "");
+    return bar;
+  }
+
+  function renderWeekGrid(){
+    var grid = document.getElementById("weekGrid");
+    grid.innerHTML = "";
+    var todayIdx = jsDayToOurDay(new Date().getDay());
+    DAY_LABELS.forEach(function(lbl, i){
+      var col = el("div","week-col");
+      col.appendChild(el("div","week-col-head" + (i===todayIdx?" is-today":""), lbl));
+      var items = itemsForDay(i);
+      if (!items.length){
+        col.appendChild(el("div","week-empty","-"));
+      } else {
+        items.forEach(function(it){
+          var wrap = el("div","week-item");
+          var chip = el("button","week-chip");
+          chip.type = "button";
+          applyItemColor(chip, it);
+          var tm = el("b", null, formatTimeShort(it.start));
+          if (it.end) tm.appendChild(el("span","wend", "~" + formatTimeShort(it.end)));
+          chip.appendChild(tm);
+          chip.appendChild(el("span","wtitle", it.title));
+          chip.addEventListener("click", function(){ openEdit(it.id); });
+
+          var go = weekTransBar(it, "go");
+          if (go) wrap.appendChild(go);
+          wrap.appendChild(chip);
+          var back = weekTransBar(it, "back");
+          if (back) wrap.appendChild(back);
+          col.appendChild(wrap);
+        });
+      }
+      grid.appendChild(col);
+    });
+  }
+
+  // ---- timeline (simple time-grid) view ----
+  var HOUR_H = 46;
+
+  function timeRange(){
+    var minM = 24*60, maxM = 0, any = false;
+    state.items.forEach(function(it){
+      any = true;
+      var candidates = [it.start, it.goStart, it.backStart];
+      var ends = [it.end, it.goEnd, it.backEnd];
+      candidates.forEach(function(t){ if (t) minM = Math.min(minM, minutesOf(t)); });
+      ends.forEach(function(t){ if (t) maxM = Math.max(maxM, minutesOf(t)); });
+    });
+    if (!any) return { startH: 8, endH: 20 };
+    var startH = Math.max(0, Math.floor(minM/60));
+    var endH = Math.min(24, Math.ceil(maxM/60));
+    if (endH - startH < 6) endH = Math.min(24, startH + 6);
+    return { startH: startH, endH: endH };
+  }
+
+  function layoutLanes(entries){
+    entries.sort(function(a,b){ return a.s - b.s || a.e - b.e; });
+    var cluster = [], curEnd = -1, out = [];
+    function flush(){
+      if (!cluster.length) return;
+      var lanes = [];
+      cluster.forEach(function(en){
+        var placed = false;
+        for (var i=0;i<lanes.length;i++){
+          if (en.s >= lanes[i]) { lanes[i] = en.e; en.lane = i; placed = true; break; }
+        }
+        if (!placed){ en.lane = lanes.length; lanes.push(en.e); }
+      });
+      cluster.forEach(function(en){ en.lanes = lanes.length; out.push(en); });
+      cluster = []; curEnd = -1;
+    }
+    entries.forEach(function(en){
+      if (cluster.length && en.s >= curEnd) flush();
+      cluster.push(en);
+      curEnd = Math.max(curEnd, en.e);
+    });
+    flush();
+    return out;
+  }
+
+  function renderTimeline(){
+    var tl = document.getElementById("timeline");
+    tl.innerHTML = "";
+    var r = timeRange();
+    var totalH = (r.endH - r.startH) * HOUR_H;
+    var todayIdx = jsDayToOurDay(new Date().getDay());
+
+    tl.style.gridTemplateColumns = "26px repeat(7, minmax(0,1fr))";
+
+    tl.appendChild(el("div","tl-corner"));
+    DAY_LABELS.forEach(function(lbl,i){
+      tl.appendChild(el("div","tl-head" + (i===todayIdx?" is-today":""), lbl));
+    });
+
+    var gutter = el("div","tl-gutter");
+    gutter.style.height = totalH + "px";
+    for (var h = r.startH; h <= r.endH; h++){
+      var lab = el("div","tl-hour", String(h));
+      lab.style.top = ((h - r.startH) * HOUR_H) + "px";
+      if (h === r.endH) lab.style.transform = "translateY(-100%)";
+      gutter.appendChild(lab);
+    }
+    tl.appendChild(gutter);
+
+    var lineGrad = "repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px " + HOUR_H + "px)";
+
+    DAY_LABELS.forEach(function(lbl, day){
+      var col = el("div","tl-col");
+      col.style.height = totalH + "px";
+      col.style.backgroundImage = lineGrad;
+
+      var items = itemsForDay(day);
+
+      // transport bars first (behind), then class blocks
+      items.forEach(function(it){
+        [["go", it.goType, it.goStart, it.goEnd], ["back", it.backType, it.backStart, it.backEnd]]
+        .forEach(function(t){
+          var mode = t[1];
+          if (!mode || mode === "none" || !t[2] || !t[3]) return;
+          var s = minutesOf(t[2]), e = minutesOf(t[3]);
+          if (e <= s) return;
+          var isGo = t[0] === "go";
+          var c = effectiveHex(it);
+          var bar = el("button","tl-trans");
+          bar.type = "button";
+          bar.style.borderColor = hexToRgba(c, mode === "car" ? 0.42 : 0.55);
+          bar.style.borderStyle = mode === "car" ? "solid" : "dashed";
+          bar.style.background = hexToRgba(c, 0.09);
+          bar.style.color = c;
+          var top = ((s - r.startH*60) / 60) * HOUR_H;
+          var hgt = Math.max(10, ((e - s)/60) * HOUR_H - 1);
+          bar.style.top = top + "px";
+          bar.style.height = hgt + "px";
+          bar.style.left = "2px";
+          bar.style.right = "2px";
+          if (hgt >= 9) bar.textContent = (isGo ? "↓" : "↑") + transLabel(mode);
+          var memo = isGo ? it.goNote : it.backNote;
+          bar.title = (isGo ? "가는 길 · " : "오는 길 · ") + transLabel(mode) + " "
+                    + formatTimeShort(t[2]) + "~" + formatTimeShort(t[3])
+                    + (memo ? " · " + memo : "");
+          bar.addEventListener("click", function(){ openEdit(it.id); });
+          col.appendChild(bar);
+        });
+      });
+
+      var entries = items.map(function(it){
+        return { it: it, s: minutesOf(it.start), e: Math.max(minutesOf(it.end), minutesOf(it.start)+20) };
+      });
+      layoutLanes(entries).forEach(function(en){
+        var it = en.it;
+        var block = el("button","tl-block");
+        block.type = "button";
+        applyItemColor(block, it);
+        var top = ((en.s - r.startH*60) / 60) * HOUR_H;
+        var hgt = Math.max(16, ((en.e - en.s)/60) * HOUR_H - 2);
+        block.style.top = top + "px";
+        block.style.height = hgt + "px";
+        var w = 100 / (en.lanes || 1);
+        block.style.left = "calc(" + (en.lane * w) + "% + 2px)";
+        block.style.width = "calc(" + w + "% - 4px)";
+        block.textContent = it.title;
+        block.title = it.title + " · " + formatTime(it.start) + "~" + formatTime(it.end);
+        block.addEventListener("click", function(){ openEdit(it.id); });
+        col.appendChild(block);
+      });
+
+      tl.appendChild(col);
+    });
+  }
+
+  function renderWeekView(){
+    var isTime = state.weekView === "time";
+    document.getElementById("weekGrid").hidden = isTime;
+    document.getElementById("timelineWrap").hidden = !isTime;
+    document.getElementById("swList").classList.toggle("active", !isTime);
+    document.getElementById("swTime").classList.toggle("active", isTime);
+    if (isTime) renderTimeline(); else renderWeekGrid();
+  }
+
+  function setWeekView(v){
+    state.weekView = v;
+    try { localStorage.setItem("schedule_week_view", v); } catch(e){}
+    renderWeekView();
+  }
+  document.getElementById("swList").addEventListener("click", function(){ setWeekView("list"); });
+  document.getElementById("swTime").addEventListener("click", function(){ setWeekView("time"); });
+
+  function renderExampleBanner(){
+    var anyExample = false;
+    state.items.forEach(function(it){ if (it.isExample) anyExample = true; });
+    document.getElementById("exampleBanner").hidden = !anyExample;
+  }
+
+  function renderAll(){
+    renderToday();
+    renderDayTabs();
+    renderDayList();
+    renderWeekView();
+    renderExampleBanner();
+  }
+
+  // ---- modal ----
+  var overlay = document.getElementById("overlay");
+  var formDayPick = document.getElementById("formDayPick");
+  var formTypePick = document.getElementById("formTypePick");
+  var goPick = document.getElementById("goPick");
+  var backPick = document.getElementById("backPick");
+  var fGoNote = document.getElementById("fGoNote");
+  var fBackNote = document.getElementById("fBackNote");
+
+  var colorPick = document.getElementById("colorPick");
+  var currentFormDay = 0, currentFormType = "school";
+  var currentGo = "none", currentBack = "none";
+  var currentColor = "";
+
+  function buildPickers(){
+    formDayPick.innerHTML = "";
+    DAY_LABELS.forEach(function(lbl,i){
+      var b = el("button", i===currentFormDay?"active":"", lbl);
+      b.type = "button";
+      b.addEventListener("click", function(){ currentFormDay = i; buildPickers(); });
+      formDayPick.appendChild(b);
+    });
+
+    formTypePick.innerHTML = "";
+    TYPES.forEach(function(t){
+      var b = el("button", t.id===currentFormType?"active":"", t.label);
+      b.type = "button";
+      b.style.setProperty("--type-color","var("+t.colorVar+")");
+      b.style.setProperty("--type-bg","var("+t.bgVar+")");
+      b.addEventListener("click", function(){ currentFormType = t.id; buildPickers(); });
+      formTypePick.appendChild(b);
+    });
+
+    goPick.innerHTML = "";
+    TRANS.forEach(function(t){
+      var b = el("button", t.id===currentGo?"active":"", t.label);
+      b.type = "button";
+      b.addEventListener("click", function(){ currentGo = t.id; buildPickers(); });
+      goPick.appendChild(b);
+    });
+    fGoNote.hidden = (currentGo === "none");
+    document.getElementById("goTimes").hidden = (currentGo === "none");
+    document.getElementById("goStartLabel").textContent = currentGo === "car" ? "탑승 시간" : "출발 시간";
+    document.getElementById("goEndLabel").textContent = currentGo === "car" ? "하차 시간" : "도착 시간";
+
+    backPick.innerHTML = "";
+    TRANS.forEach(function(t){
+      var b = el("button", t.id===currentBack?"active":"", t.label);
+      b.type = "button";
+      b.addEventListener("click", function(){ currentBack = t.id; buildPickers(); });
+      backPick.appendChild(b);
+    });
+    fBackNote.hidden = (currentBack === "none");
+    document.getElementById("backTimes").hidden = (currentBack === "none");
+    document.getElementById("backStartLabel").textContent = currentBack === "car" ? "탑승 시간" : "출발 시간";
+    document.getElementById("backEndLabel").textContent = currentBack === "car" ? "하차 시간" : "도착 시간";
+
+    colorPick.innerHTML = "";
+    var auto = el("button","auto" + (currentColor==="" ? " active" : ""), "구분 색");
+    auto.type = "button";
+    auto.title = "구분(학교·학원 등) 기본 색 사용";
+    auto.addEventListener("click", function(){ currentColor = ""; buildPickers(); });
+    colorPick.appendChild(auto);
+    COLORS.forEach(function(c){
+      var b = el("button", currentColor===c ? "active" : "");
+      b.type = "button";
+      b.style.setProperty("--sw", c);
+      b.setAttribute("aria-label", "색상 " + c);
+      b.addEventListener("click", function(){ currentColor = c; buildPickers(); });
+      colorPick.appendChild(b);
+    });
+  }
+
+  function openAdd(day){
+    state.editingId = null;
+    currentFormDay = (typeof day === "number") ? day : state.selectedDay;
+    currentFormType = "school";
+    currentGo = "none"; currentBack = "none";
+    currentColor = "";
+    document.getElementById("modalTitle").textContent = "일정 추가";
+    document.getElementById("fTitle").value = "";
+    document.getElementById("fStart").value = "09:00";
+    document.getElementById("fEnd").value = "10:00";
+    document.getElementById("fPlace").value = "";
+    document.getElementById("fNote").value = "";
+    fGoNote.value = ""; fBackNote.value = "";
+    document.getElementById("fGoStart").value = "";
+    document.getElementById("fGoEnd").value = "";
+    document.getElementById("fBackStart").value = "";
+    document.getElementById("fBackEnd").value = "";
+    document.getElementById("deleteBtn").hidden = true;
+    buildPickers();
+    overlay.hidden = false;
+    document.getElementById("fTitle").focus();
+  }
+
+  function openEdit(id){
+    var it = state.items.get(id);
+    if (!it) return;
+    state.editingId = id;
+    currentFormDay = it.day;
+    currentFormType = it.type;
+    currentGo = it.goType || "none";
+    currentBack = it.backType || "none";
+    currentColor = it.color || "";
+    document.getElementById("modalTitle").textContent = "일정 수정";
+    document.getElementById("fTitle").value = it.title || "";
+    document.getElementById("fStart").value = it.start || "09:00";
+    document.getElementById("fEnd").value = it.end || "10:00";
+    document.getElementById("fPlace").value = it.place || "";
+    document.getElementById("fNote").value = it.note || "";
+    fGoNote.value = it.goNote || "";
+    fBackNote.value = it.backNote || "";
+    document.getElementById("fGoStart").value = it.goStart || "";
+    document.getElementById("fGoEnd").value = it.goEnd || "";
+    document.getElementById("fBackStart").value = it.backStart || "";
+    document.getElementById("fBackEnd").value = it.backEnd || "";
+    document.getElementById("deleteBtn").hidden = false;
+    buildPickers();
+    overlay.hidden = false;
+  }
+
+  function closeModal(){ overlay.hidden = true; }
+
+  document.getElementById("cancelBtn").addEventListener("click", closeModal);
+  overlay.addEventListener("click", function(e){ if (e.target === overlay) closeModal(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !overlay.hidden) closeModal(); });
+
+  document.getElementById("addDay").addEventListener("click", function(){ openAdd(state.selectedDay); });
+
+  document.getElementById("itemForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var title = document.getElementById("fTitle").value.trim();
+    var start = document.getElementById("fStart").value || "09:00";
+    var end = document.getElementById("fEnd").value || "10:00";
+    var place = document.getElementById("fPlace").value.trim();
+    var note = document.getElementById("fNote").value.trim();
+    if (!title) return;
+
+    var data = {
+      day: currentFormDay,
+      type: currentFormType,
+      title: title,
+      start: start,
+      end: end,
+      place: place,
+      note: note,
+      goType: currentGo,
+      goNote: currentGo === "none" ? "" : fGoNote.value.trim(),
+      goStart: currentGo === "none" ? "" : document.getElementById("fGoStart").value,
+      goEnd: currentGo === "none" ? "" : document.getElementById("fGoEnd").value,
+      backType: currentBack,
+      backNote: currentBack === "none" ? "" : fBackNote.value.trim(),
+      backStart: currentBack === "none" ? "" : document.getElementById("fBackStart").value,
+      backEnd: currentBack === "none" ? "" : document.getElementById("fBackEnd").value,
+      color: currentColor,
+      sortKey: currentFormDay * 1440 + minutesOf(start),
+      isExample: false
+    };
+
+    saveItem(state.editingId, data);
+    closeModal();
+  });
+
+  document.getElementById("deleteBtn").addEventListener("click", function(){
+    if (state.editingId) deleteItem(state.editingId);
+    closeModal();
+  });
+
+  // ---- title editing ----
+  var titleEl = document.getElementById("titleText");
+  titleEl.addEventListener("click", function(){
+    var current = titleEl.textContent;
+    var next = window.prompt("시간표 이름을 입력하세요", current);
+    if (next && next.trim()) {
+      titleEl.textContent = next.trim();
+      saveTitle(next.trim());
+    }
+  });
+
+  // ---- db wiring ----
+  var db = null;
+  var itemsCol = null;
+
+  var SEED_ITEMS = [
+    { day:0, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
+      goType:"walk", goStart:"08:10", goEnd:"08:25", goNote:"엄마와 함께 등교", backType:"none", backNote:"", isExample:true },
+    { day:1, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
+      goType:"walk", goStart:"08:10", goEnd:"08:25", goNote:"", backType:"none", backNote:"", isExample:true },
+    { day:1, type:"academy", title:"피아노 학원", start:"15:30", end:"17:00", place:"별빛음악학원", note:"악보",
+      goType:"car", goStart:"15:10", goEnd:"15:25", goNote:"학교 앞에서 학원 차량 탑승",
+      backType:"walk", backStart:"17:00", backEnd:"17:20", backNote:"엄마가 학원 앞에서 마중", isExample:true },
+    { day:2, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
+      goType:"walk", goStart:"08:10", goEnd:"08:25", goNote:"", backType:"none", backNote:"", isExample:true },
+    { day:2, type:"academy", title:"수학 학원", start:"16:00", end:"17:30", place:"으뜸수학학원", note:"",
+      goType:"walk", goStart:"15:45", goEnd:"15:55", goNote:"집에서 도보 10분",
+      backType:"car", backStart:"17:30", backEnd:"17:45", backNote:"아빠가 차로 픽업", isExample:true },
+    { day:3, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
+      goType:"walk", goStart:"08:10", goEnd:"08:25", goNote:"", backType:"none", backNote:"", isExample:true },
+    { day:4, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
+      goType:"walk", goStart:"08:10", goEnd:"08:25", goNote:"", backType:"none", backNote:"", isExample:true },
+    { day:4, type:"academy", title:"태권도", start:"15:00", end:"16:30", place:"기린태권도장", note:"도복",
+      goType:"car", goStart:"14:40", goEnd:"14:55", goNote:"학교 정문에서 관장님 차량",
+      backType:"car", backStart:"16:30", backEnd:"16:45", backNote:"아파트 정문 하차", isExample:true }
+  ];
+
+  function withSortKey(it){
+    it.sortKey = (it.day||0) * 1440 + minutesOf(it.start||"00:00");
+    return it;
+  }
+
+  function saveItem(id, data){
+    if (!itemsCol){
+      var localId = id || ("local_" + Date.now());
+      state.items.set(localId, Object.assign({id: localId}, data));
+      renderAll();
+      return;
+    }
+    if (id) {
+      itemsCol.doc(id).set(data).catch(function(){});
+    } else {
+      itemsCol.add(data).catch(function(){});
+    }
+  }
+  function deleteItem(id){
+    if (!itemsCol){
+      state.items.delete(id);
+      renderAll();
+      return;
+    }
+    itemsCol.doc(id).delete().catch(function(){});
+  }
+  function saveTitle(t){
+    if (db) db.doc("settings/app").set({ title: t }).catch(function(){});
+  }
+
+  var seedAttempted = false;
+  function maybeSeed(snapSize){
+    if (seedAttempted || snapSize > 0 || !itemsCol) return;
+    seedAttempted = true;
+    var marker = db.doc("meta/app");
+    marker.get().then(function(snap){
+      if (snap.exists && snap.data() && snap.data().seeded) return;
+      marker.set({ seeded: true }).catch(function(){});
+      SEED_ITEMS.forEach(function(it){ itemsCol.add(withSortKey(Object.assign({}, it))).catch(function(){}); });
+    }).catch(function(){});
+  }
+
+  // ===== Firebase 연결 =====
+  var fbAuth = null, fbStore = null, userRoot = null;
+  var unsubs = [];
+  var gateSetup = document.getElementById("setupGate");
+  var gateAuth = document.getElementById("authGate");
+  var appWrap = document.getElementById("appWrap");
+
+  function readConfig(){
+    var cfg = window.FIREBASE_CONFIG;
+    if (cfg && cfg.apiKey && cfg.apiKey.indexOf("여기에") === -1) return cfg;
+    try {
+      var saved = localStorage.getItem("fb_config");
+      if (saved){
+        var p = JSON.parse(saved);
+        if (p && p.apiKey) return p;
+      }
+    } catch(e){}
+    return null;
+  }
+
+  function showGate(which){
+    gateSetup.hidden = which !== "setup";
+    gateAuth.hidden = which !== "auth";
+    appWrap.hidden = which !== "app";
+  }
+
+  function authMessage(code){
+    switch(code){
+      case "auth/invalid-email": return "이메일 형식이 올바르지 않아요.";
+      case "auth/weak-password": return "비밀번호는 6자 이상이어야 해요.";
+      case "auth/email-already-in-use": return "이미 가입된 이메일이에요. 로그인해 주세요.";
+      case "auth/user-not-found":
+      case "auth/wrong-password":
+      case "auth/invalid-credential": return "이메일 또는 비밀번호가 맞지 않아요.";
+      case "auth/too-many-requests": return "시도가 많았어요. 잠시 후 다시 해주세요.";
+      case "auth/network-request-failed": return "네트워크 연결을 확인해 주세요.";
+      case "auth/operation-not-allowed": return "Firebase 콘솔에서 '이메일/비밀번호' 로그인을 사용 설정해 주세요.";
+      default: return "문제가 생겼어요. 다시 시도해 주세요.";
+    }
+  }
+  function setAuthMsg(text, kind){
+    var elx = document.getElementById("authMsg");
+    elx.textContent = text || "";
+    elx.className = "gate-msg" + (kind ? " " + kind : "");
+  }
+
+  /** userRoot 아래 경로로 바꿔주는 얇은 어댑터 — 앱 로직은 그대로 둔다 */
+  function makeShim(root){
+    return {
+      doc: function(path){
+        var p = path.split("/");
+        return root.collection(p[0]).doc(p[1]);
+      },
+      collection: function(name){ return root.collection(name); }
+    };
+  }
+
+  function subscribeData(){
+    unsubs.push(itemsCol.orderBy("sortKey").onSnapshot(function(snap){
+      var map = new Map();
+      snap.docs.forEach(function(d){
+        var data = d.data() || {};
+        map.set(d.id, Object.assign({ id: d.id }, data));
+      });
+      state.items = map;
+      renderAll();
+      maybeSeed(snap.size);
+    }, function(){}));
+
+    unsubs.push(db.doc("settings/app").onSnapshot(function(snap){
+      if (snap.exists && snap.data() && snap.data().title){
+        titleEl.textContent = snap.data().title;
+      }
+    }, function(){}));
+  }
+
+  function clearData(){
+    unsubs.forEach(function(u){ try { u(); } catch(e){} });
+    unsubs = [];
+    state.items = new Map();
+    db = null; itemsCol = null; userRoot = null;
+    seedAttempted = false;
+  }
+
+  function boot(){
+    renderAll();
+
+    if (typeof firebase === "undefined"){
+      showGate("setup");
+      document.getElementById("setupMsg").textContent =
+        "Firebase 스크립트를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.";
+      document.getElementById("setupMsg").className = "gate-msg err";
+      return;
+    }
+
+    var cfg = readConfig();
+    if (!cfg){ showGate("setup"); return; }
+
+    try {
+      firebase.initializeApp(cfg);
+    } catch(e){
+      showGate("setup");
+      document.getElementById("setupMsg").textContent = "설정값이 올바르지 않아요. 다시 확인해 주세요.";
+      document.getElementById("setupMsg").className = "gate-msg err";
+      return;
+    }
+    fbAuth = firebase.auth();
+    fbStore = firebase.firestore();
+    try { fbStore.enablePersistence({ synchronizeTabs:true }).catch(function(){}); } catch(e){}
+
+    fbAuth.onAuthStateChanged(function(user){
+      if (user){
+        userRoot = fbStore.collection("users").doc(user.uid);
+        db = makeShim(userRoot);
+        itemsCol = userRoot.collection("items");
+        document.getElementById("userEmail").textContent = user.email || "";
+        showGate("app");
+        renderAll();
+        subscribeData();
+      } else {
+        clearData();
+        showGate("auth");
+        renderAll();
+      }
+    });
+  }
+
+  // 로그인 / 회원가입 / 재설정
+  document.getElementById("authForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var email = document.getElementById("authEmail").value.trim();
+    var pw = document.getElementById("authPw").value;
+    setAuthMsg("로그인 중…");
+    fbAuth.signInWithEmailAndPassword(email, pw)
+      .then(function(){ setAuthMsg(""); })
+      .catch(function(err){ setAuthMsg(authMessage(err.code), "err"); });
+  });
+
+  document.getElementById("signupBtn").addEventListener("click", function(){
+    var email = document.getElementById("authEmail").value.trim();
+    var pw = document.getElementById("authPw").value;
+    if (!email || pw.length < 6){
+      setAuthMsg("이메일과 6자 이상 비밀번호를 입력해 주세요.", "err");
+      return;
+    }
+    setAuthMsg("가입 중…");
+    fbAuth.createUserWithEmailAndPassword(email, pw)
+      .then(function(){ setAuthMsg(""); })
+      .catch(function(err){ setAuthMsg(authMessage(err.code), "err"); });
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", function(){
+    var email = document.getElementById("authEmail").value.trim();
+    if (!email){ setAuthMsg("이메일을 먼저 입력해 주세요.", "err"); return; }
+    fbAuth.sendPasswordResetEmail(email)
+      .then(function(){ setAuthMsg("재설정 메일을 보냈어요. 메일함을 확인해 주세요.", "ok"); })
+      .catch(function(err){ setAuthMsg(authMessage(err.code), "err"); });
+  });
+
+  document.getElementById("logoutBtn").addEventListener("click", function(){
+    if (fbAuth) fbAuth.signOut();
+  });
+
+  document.getElementById("setupForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var raw = document.getElementById("cfgInput").value.trim();
+    var msg = document.getElementById("setupMsg");
+    // firebaseConfig = { ... } 형태로 붙여넣어도 받아들인다
+    var brace = raw.indexOf("{");
+    if (brace > 0) raw = raw.slice(brace);
+    if (raw.slice(-1) === ";") raw = raw.slice(0, -1);
+    var cfg = null;
+    try { cfg = JSON.parse(raw); }
+    catch(e){
+      try { cfg = (new Function("return (" + raw + ")"))(); } catch(e2){ cfg = null; }
+    }
+    if (!cfg || !cfg.apiKey || !cfg.projectId){
+      msg.textContent = "설정값을 읽지 못했어요. { } 를 포함해 전체를 붙여넣어 주세요.";
+      msg.className = "gate-msg err";
+      return;
+    }
+    try { localStorage.setItem("fb_config", JSON.stringify(cfg)); } catch(e){}
+    msg.textContent = "적용했어요. 잠시 후 로그인 화면으로 넘어갑니다.";
+    msg.className = "gate-msg ok";
+    setTimeout(function(){ location.reload(); }, 800);
+  });
+
+  document.getElementById("clearExamples").addEventListener("click", function(){
+    var toDelete = [];
+    state.items.forEach(function(it, id){ if (it.isExample) toDelete.push(id); });
+    toDelete.forEach(function(id){ deleteItem(id); });
+  });
+
+  boot();
+
+  // PWA: 홈 화면에 설치 + 오프라인 지원
+  if ("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    });
+  }
+
+  setInterval(function(){ renderToday(); renderWeekGrid(); }, 60000);
+})();
+</script>
+
+</body>
+</html>
