@@ -345,6 +345,15 @@ var FIREBASE_CONFIG = {
   }
   .color-pick button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
 
+  .timesel{ display:flex; gap:6px; }
+  .timesel select{
+    flex:1; min-width:0; font-family:inherit; font-size:.92rem; padding:9px 8px;
+    border-radius:var(--radius-sm); border:1px solid var(--line-strong);
+    background:var(--bg); color:var(--ink);
+  }
+  .trans-block .timesel select{ background:var(--surface); font-size:.86rem; padding:8px 6px; }
+  .timesel select:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+
   .modal-actions{ display:flex; gap:8px; margin-top:4px; }
   .btn{
     font-family:inherit; font-size:.88rem; font-weight:700; padding:11px; border-radius:var(--radius-sm);
@@ -521,12 +530,12 @@ var FIREBASE_CONFIG = {
       </div>
       <div class="row2">
         <div class="field">
-          <label for="fStart">시작 시간</label>
-          <input type="time" id="fStart" required>
+          <label for="fStartH">시작 시간</label>
+          <div class="timesel"><select id="fStartH"></select><select id="fStartM"></select></div>
         </div>
         <div class="field">
-          <label for="fEnd">종료 시간</label>
-          <input type="time" id="fEnd" required>
+          <label for="fEndH">종료 시간</label>
+          <div class="timesel"><select id="fEndH"></select><select id="fEndM"></select></div>
         </div>
       </div>
       <div class="field">
@@ -542,8 +551,8 @@ var FIREBASE_CONFIG = {
         </div>
         <div class="trans-pick" id="goPick"></div>
         <div class="trans-times" id="goTimes" hidden>
-          <div class="tfield"><label for="fGoStart" id="goStartLabel">출발 시간</label><input type="time" id="fGoStart"></div>
-          <div class="tfield"><label for="fGoEnd" id="goEndLabel">도착 시간</label><input type="time" id="fGoEnd"></div>
+          <div class="tfield"><label for="fGoStartH" id="goStartLabel">출발 시간</label><div class="timesel"><select id="fGoStartH"></select><select id="fGoStartM"></select></div></div>
+          <div class="tfield"><label for="fGoEndH" id="goEndLabel">도착 시간</label><div class="timesel"><select id="fGoEndH"></select><select id="fGoEndM"></select></div></div>
         </div>
         <input type="text" id="fGoNote" maxlength="60" placeholder="한 줄 메모 · 예: 학교 앞에서 노란차 탑승" hidden>
       </div>
@@ -556,8 +565,8 @@ var FIREBASE_CONFIG = {
         </div>
         <div class="trans-pick" id="backPick"></div>
         <div class="trans-times" id="backTimes" hidden>
-          <div class="tfield"><label for="fBackStart" id="backStartLabel">출발 시간</label><input type="time" id="fBackStart"></div>
-          <div class="tfield"><label for="fBackEnd" id="backEndLabel">도착 시간</label><input type="time" id="fBackEnd"></div>
+          <div class="tfield"><label for="fBackStartH" id="backStartLabel">출발 시간</label><div class="timesel"><select id="fBackStartH"></select><select id="fBackStartM"></select></div></div>
+          <div class="tfield"><label for="fBackEndH" id="backEndLabel">도착 시간</label><div class="timesel"><select id="fBackEndH"></select><select id="fBackEndM"></select></div></div>
         </div>
         <input type="text" id="fBackNote" maxlength="60" placeholder="한 줄 메모 · 예: 아파트 정문 하차, 엄마가 마중" hidden>
       </div>
@@ -997,6 +1006,60 @@ var FIREBASE_CONFIG = {
     renderExampleBanner();
   }
 
+  // ── 시간 선택 (안드로이드 기본 시계 대화상자 대신 시·분 드롭다운) ──
+  var MIN_STEP = 5;
+  function pad2(n){ return (n < 10 ? "0" : "") + n; }
+  function hourLabel(h){
+    var period = h < 12 ? "오전" : "오후";
+    var h12 = h % 12; if (h12 === 0) h12 = 12;
+    return period + " " + h12 + "시";
+  }
+  function initTimeSelects(){
+    ["fStart","fEnd","fGoStart","fGoEnd","fBackStart","fBackEnd"].forEach(function(id){
+      var h = document.getElementById(id + "H");
+      var m = document.getElementById(id + "M");
+      if (!h || !m) return;
+      var optional = (id !== "fStart" && id !== "fEnd");
+      var ho = optional ? '<option value="">시간</option>' : "";
+      for (var i = 0; i < 24; i++) ho += '<option value="' + i + '">' + hourLabel(i) + "</option>";
+      h.innerHTML = ho;
+      var mo = optional ? '<option value="">분</option>' : "";
+      for (var j = 0; j < 60; j += MIN_STEP) mo += '<option value="' + j + '">' + pad2(j) + "분</option>";
+      m.innerHTML = mo;
+    });
+  }
+  /** input[type=time] 과 같은 .value 인터페이스를 제공하는 어댑터 */
+  function tf(id){
+    var h = document.getElementById(id + "H");
+    var m = document.getElementById(id + "M");
+    return {
+      get value(){
+        if (!h || !m || h.value === "" || m.value === "") return "";
+        return pad2(parseInt(h.value, 10)) + ":" + pad2(parseInt(m.value, 10));
+      },
+      set value(v){
+        if (!h || !m) return;
+        if (!v){ h.value = ""; m.value = ""; return; }
+        var p = String(v).split(":");
+        var hh = parseInt(p[0], 10) || 0;
+        var mm = parseInt(p[1], 10) || 0;
+        h.value = String(hh);
+        var found = false;
+        for (var i = 0; i < m.options.length; i++){
+          if (m.options[i].value === String(mm)){ found = true; break; }
+        }
+        if (!found){
+          var o = document.createElement("option");
+          o.value = String(mm);
+          o.textContent = pad2(mm) + "분";
+          m.appendChild(o);
+        }
+        m.value = String(mm);
+      }
+    };
+  }
+  initTimeSelects();
+
   // ---- modal ----
   var overlay = document.getElementById("overlay");
   var formDayPick = document.getElementById("formDayPick");
@@ -1078,15 +1141,15 @@ var FIREBASE_CONFIG = {
     currentColor = "";
     document.getElementById("modalTitle").textContent = "일정 추가";
     document.getElementById("fTitle").value = "";
-    document.getElementById("fStart").value = "09:00";
-    document.getElementById("fEnd").value = "10:00";
+    tf("fStart").value = "09:00";
+    tf("fEnd").value = "10:00";
     document.getElementById("fPlace").value = "";
     document.getElementById("fNote").value = "";
     fGoNote.value = ""; fBackNote.value = "";
-    document.getElementById("fGoStart").value = "";
-    document.getElementById("fGoEnd").value = "";
-    document.getElementById("fBackStart").value = "";
-    document.getElementById("fBackEnd").value = "";
+    tf("fGoStart").value = "";
+    tf("fGoEnd").value = "";
+    tf("fBackStart").value = "";
+    tf("fBackEnd").value = "";
     document.getElementById("deleteBtn").hidden = true;
     buildPickers();
     overlay.hidden = false;
@@ -1104,16 +1167,16 @@ var FIREBASE_CONFIG = {
     currentColor = it.color || "";
     document.getElementById("modalTitle").textContent = "일정 수정";
     document.getElementById("fTitle").value = it.title || "";
-    document.getElementById("fStart").value = it.start || "09:00";
-    document.getElementById("fEnd").value = it.end || "10:00";
+    tf("fStart").value = it.start || "09:00";
+    tf("fEnd").value = it.end || "10:00";
     document.getElementById("fPlace").value = it.place || "";
     document.getElementById("fNote").value = it.note || "";
     fGoNote.value = it.goNote || "";
     fBackNote.value = it.backNote || "";
-    document.getElementById("fGoStart").value = it.goStart || "";
-    document.getElementById("fGoEnd").value = it.goEnd || "";
-    document.getElementById("fBackStart").value = it.backStart || "";
-    document.getElementById("fBackEnd").value = it.backEnd || "";
+    tf("fGoStart").value = it.goStart || "";
+    tf("fGoEnd").value = it.goEnd || "";
+    tf("fBackStart").value = it.backStart || "";
+    tf("fBackEnd").value = it.backEnd || "";
     document.getElementById("deleteBtn").hidden = false;
     buildPickers();
     overlay.hidden = false;
@@ -1130,8 +1193,8 @@ var FIREBASE_CONFIG = {
   document.getElementById("itemForm").addEventListener("submit", function(e){
     e.preventDefault();
     var title = document.getElementById("fTitle").value.trim();
-    var start = document.getElementById("fStart").value || "09:00";
-    var end = document.getElementById("fEnd").value || "10:00";
+    var start = tf("fStart").value || "09:00";
+    var end = tf("fEnd").value || "10:00";
     var place = document.getElementById("fPlace").value.trim();
     var note = document.getElementById("fNote").value.trim();
     if (!title) return;
@@ -1146,12 +1209,12 @@ var FIREBASE_CONFIG = {
       note: note,
       goType: currentGo,
       goNote: currentGo === "none" ? "" : fGoNote.value.trim(),
-      goStart: currentGo === "none" ? "" : document.getElementById("fGoStart").value,
-      goEnd: currentGo === "none" ? "" : document.getElementById("fGoEnd").value,
+      goStart: currentGo === "none" ? "" : tf("fGoStart").value,
+      goEnd: currentGo === "none" ? "" : tf("fGoEnd").value,
       backType: currentBack,
       backNote: currentBack === "none" ? "" : fBackNote.value.trim(),
-      backStart: currentBack === "none" ? "" : document.getElementById("fBackStart").value,
-      backEnd: currentBack === "none" ? "" : document.getElementById("fBackEnd").value,
+      backStart: currentBack === "none" ? "" : tf("fBackStart").value,
+      backEnd: currentBack === "none" ? "" : tf("fBackEnd").value,
       color: currentColor,
       sortKey: currentFormDay * 1440 + minutesOf(start),
       isExample: false
