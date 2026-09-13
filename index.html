@@ -142,6 +142,10 @@ var FIREBASE_CONFIG = {
     font-size:.66rem; font-weight:700; padding:2px 7px; border-radius:999px;
     background:var(--danger-bg); color:var(--danger);
   }
+  .item-repeat{
+    font-size:.64rem; font-weight:700; padding:2px 7px; border-radius:999px;
+    background:var(--surface-2); color:var(--ink-faint); letter-spacing:-.02em;
+  }
   .item-place{ font-size:.78rem; color:var(--ink-soft); margin-top:2px; }
   .item-note{ font-size:.76rem; color:var(--ink-faint); margin-top:5px; display:flex; gap:6px; flex-wrap:wrap; }
   .chip{ background:var(--surface-2); border-radius:6px; padding:1px 7px; }
@@ -304,6 +308,14 @@ var FIREBASE_CONFIG = {
     border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); cursor:pointer;
   }
   .day-pick button.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .day-quick{ display:flex; gap:6px; margin-bottom:2px; }
+  .day-quick button{
+    font-family:inherit; font-size:.72rem; font-weight:700; padding:5px 12px;
+    border-radius:999px; border:1px solid var(--line-strong);
+    background:var(--surface); color:var(--ink-soft); cursor:pointer;
+  }
+  .day-quick button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .day-hint{ font-size:.72rem; color:var(--ink-faint); margin-top:2px; }
 
   .trans-block{
     border:1px solid var(--line); border-radius:var(--radius-md); padding:12px;
@@ -517,8 +529,14 @@ var FIREBASE_CONFIG = {
     <h2 id="modalTitle">일정 추가</h2>
     <form id="itemForm">
       <div class="field">
-        <label>요일</label>
+        <label>요일 <span class="sublabel">· 여러 개 선택 가능</span></label>
+        <div class="day-quick">
+          <button type="button" id="qWeekday">평일</button>
+          <button type="button" id="qAll">매일</button>
+          <button type="button" id="qOne">하나만</button>
+        </div>
         <div class="day-pick" id="formDayPick"></div>
+        <p class="day-hint" id="dayHint"></p>
       </div>
       <div class="field">
         <label>구분</label>
@@ -660,11 +678,25 @@ var FIREBASE_CONFIG = {
     return d.getHours()*60 + d.getMinutes();
   }
 
+  /** 항목이 걸린 요일 목록 — 예전 데이터(day 하나)도 함께 처리 */
+  function daysOf(it){
+    if (Array.isArray(it.days) && it.days.length) return it.days;
+    return (typeof it.day === "number") ? [it.day] : [];
+  }
   function itemsForDay(day){
     var arr = [];
-    state.items.forEach(function(it){ if (it.day === day) arr.push(it); });
+    state.items.forEach(function(it){ if (daysOf(it).indexOf(day) !== -1) arr.push(it); });
     arr.sort(function(a,b){ return minutesOf(a.start) - minutesOf(b.start); });
     return arr;
+  }
+  /** 월화수 처럼 반복 요일을 짧게 */
+  function daysLabel(it){
+    var d = daysOf(it);
+    if (d.length < 2) return "";
+    if (d.length === 7) return "매일";
+    var sorted = d.slice().sort(function(a,b){ return a-b; });
+    if (sorted.join() === "0,1,2,3,4") return "평일";
+    return sorted.map(function(i){ return DAY_LABELS[i]; }).join("");
   }
 
   function el(tag, cls, text){
@@ -701,6 +733,8 @@ var FIREBASE_CONFIG = {
     var titleRow = el("div", "item-title-row");
     titleRow.appendChild(el("span", "item-title", it.title));
     titleRow.appendChild(el("span", "item-tag", ti.label));
+    var rep = daysLabel(it);
+    if (rep) titleRow.appendChild(el("span", "item-repeat", "반복 " + rep));
     if (opts.status) titleRow.appendChild(el("span", "item-status", opts.status));
     body.appendChild(titleRow);
     if (it.place) body.appendChild(el("div", "item-place", it.place));
@@ -842,7 +876,7 @@ var FIREBASE_CONFIG = {
   }
 
   // ---- timeline (simple time-grid) view ----
-  var HOUR_H = 46;
+  var HOUR_H = 68;
 
   function timeRange(){
     var minM = 24*60, maxM = 0, any = false;
@@ -959,12 +993,21 @@ var FIREBASE_CONFIG = {
         block.type = "button";
         applyItemColor(block, it);
         var top = ((en.s - r.startH*60) / 60) * HOUR_H;
-        var hgt = Math.max(16, ((en.e - en.s)/60) * HOUR_H - 2);
+        var hgt = Math.max(20, ((en.e - en.s)/60) * HOUR_H - 2);
         block.style.top = top + "px";
         block.style.height = hgt + "px";
-        var w = 100 / (en.lanes || 1);
-        block.style.left = "calc(" + (en.lane * w) + "% + 2px)";
-        block.style.width = "calc(" + w + "% - 4px)";
+        // 겹칠 때 균등 분할하면 너무 좁아져서, 뒤 블록을 조금씩 밀어 계단식으로 겹친다
+        var lanes = en.lanes || 1;
+        if (lanes > 1){
+          var step = Math.min(26, 60 / (lanes - 1));
+          block.style.left = "calc(" + (en.lane * step) + "% + 2px)";
+          block.style.width = "calc(" + (100 - en.lane * step) + "% - 4px)";
+          block.style.zIndex = String(10 + en.lane);
+          block.style.boxShadow = en.lane > 0 ? "-2px 0 6px -2px rgba(30,38,32,.25)" : "";
+        } else {
+          block.style.left = "2px";
+          block.style.width = "calc(100% - 4px)";
+        }
         block.textContent = it.title;
         block.title = it.title + " · " + formatTime(it.start) + "~" + formatTime(it.end);
         block.addEventListener("click", function(){ openEdit(it.id); });
@@ -1070,18 +1113,29 @@ var FIREBASE_CONFIG = {
   var fBackNote = document.getElementById("fBackNote");
 
   var colorPick = document.getElementById("colorPick");
-  var currentFormDay = 0, currentFormType = "school";
+  var currentFormDays = [0], currentFormType = "school";
   var currentGo = "none", currentBack = "none";
   var currentColor = "";
 
   function buildPickers(){
     formDayPick.innerHTML = "";
     DAY_LABELS.forEach(function(lbl,i){
-      var b = el("button", i===currentFormDay?"active":"", lbl);
+      var on = currentFormDays.indexOf(i) !== -1;
+      var b = el("button", on ? "active" : "", lbl);
       b.type = "button";
-      b.addEventListener("click", function(){ currentFormDay = i; buildPickers(); });
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.addEventListener("click", function(){
+        var at = currentFormDays.indexOf(i);
+        if (at === -1) currentFormDays.push(i); else currentFormDays.splice(at, 1);
+        currentFormDays.sort(function(x,y){ return x-y; });
+        buildPickers();
+      });
       formDayPick.appendChild(b);
     });
+    document.getElementById("dayHint").textContent =
+      currentFormDays.length > 1
+        ? DAY_LABELS.filter(function(_,i){ return currentFormDays.indexOf(i) !== -1; }).join("·") + " 요일에 함께 등록됩니다"
+        : "여러 요일을 눌러 한 번에 등록할 수 있어요";
 
     formTypePick.innerHTML = "";
     TYPES.forEach(function(t){
@@ -1135,7 +1189,7 @@ var FIREBASE_CONFIG = {
 
   function openAdd(day){
     state.editingId = null;
-    currentFormDay = (typeof day === "number") ? day : state.selectedDay;
+    currentFormDays = [(typeof day === "number") ? day : state.selectedDay];
     currentFormType = "school";
     currentGo = "none"; currentBack = "none";
     currentColor = "";
@@ -1160,7 +1214,8 @@ var FIREBASE_CONFIG = {
     var it = state.items.get(id);
     if (!it) return;
     state.editingId = id;
-    currentFormDay = it.day;
+    currentFormDays = daysOf(it).slice();
+    if (!currentFormDays.length) currentFormDays = [state.selectedDay];
     currentFormType = it.type;
     currentGo = it.goType || "none";
     currentBack = it.backType || "none";
@@ -1184,6 +1239,17 @@ var FIREBASE_CONFIG = {
 
   function closeModal(){ overlay.hidden = true; }
 
+  document.getElementById("qWeekday").addEventListener("click", function(){
+    currentFormDays = [0,1,2,3,4]; buildPickers();
+  });
+  document.getElementById("qAll").addEventListener("click", function(){
+    currentFormDays = [0,1,2,3,4,5,6]; buildPickers();
+  });
+  document.getElementById("qOne").addEventListener("click", function(){
+    currentFormDays = [currentFormDays.length ? currentFormDays[0] : state.selectedDay];
+    buildPickers();
+  });
+
   document.getElementById("cancelBtn").addEventListener("click", closeModal);
   overlay.addEventListener("click", function(e){ if (e.target === overlay) closeModal(); });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !overlay.hidden) closeModal(); });
@@ -1199,8 +1265,14 @@ var FIREBASE_CONFIG = {
     var note = document.getElementById("fNote").value.trim();
     if (!title) return;
 
+    if (!currentFormDays.length){
+      window.alert("요일을 하나 이상 선택해 주세요.");
+      return;
+    }
+
     var data = {
-      day: currentFormDay,
+      days: currentFormDays.slice(),
+      day: currentFormDays[0],
       type: currentFormType,
       title: title,
       start: start,
@@ -1216,7 +1288,7 @@ var FIREBASE_CONFIG = {
       backStart: currentBack === "none" ? "" : tf("fBackStart").value,
       backEnd: currentBack === "none" ? "" : tf("fBackEnd").value,
       color: currentColor,
-      sortKey: currentFormDay * 1440 + minutesOf(start),
+      sortKey: currentFormDays[0] * 1440 + minutesOf(start),
       isExample: false
     };
 
@@ -1245,29 +1317,23 @@ var FIREBASE_CONFIG = {
   var itemsCol = null;
 
   var SEED_ITEMS = [
-    { day:0, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
+    { days:[0,1,2,3,4], day:0, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
       goType:"walk", goStart:"08:10", goEnd:"08:25", goNote:"엄마와 함께 등교", backType:"none", backNote:"", isExample:true },
-    { day:1, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
-      goType:"walk", goStart:"08:10", goEnd:"08:25", goNote:"", backType:"none", backNote:"", isExample:true },
-    { day:1, type:"academy", title:"피아노 학원", start:"15:30", end:"17:00", place:"별빛음악학원", note:"악보",
+    { days:[1], day:1, type:"academy", title:"피아노 학원", start:"15:30", end:"17:00", place:"별빛음악학원", note:"악보",
       goType:"car", goStart:"15:10", goEnd:"15:25", goNote:"학교 앞에서 학원 차량 탑승",
       backType:"walk", backStart:"17:00", backEnd:"17:20", backNote:"엄마가 학원 앞에서 마중", isExample:true },
-    { day:2, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
-      goType:"walk", goStart:"08:10", goEnd:"08:25", goNote:"", backType:"none", backNote:"", isExample:true },
-    { day:2, type:"academy", title:"수학 학원", start:"16:00", end:"17:30", place:"으뜸수학학원", note:"",
+    { days:[2,4], day:2, type:"academy", title:"수학 학원", start:"16:00", end:"17:30", place:"으뜸수학학원", note:"",
       goType:"walk", goStart:"15:45", goEnd:"15:55", goNote:"집에서 도보 10분",
       backType:"car", backStart:"17:30", backEnd:"17:45", backNote:"아빠가 차로 픽업", isExample:true },
-    { day:3, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
-      goType:"walk", goStart:"08:10", goEnd:"08:25", goNote:"", backType:"none", backNote:"", isExample:true },
-    { day:4, type:"school", title:"학교 수업", start:"08:30", end:"14:30", place:"", note:"",
-      goType:"walk", goStart:"08:10", goEnd:"08:25", goNote:"", backType:"none", backNote:"", isExample:true },
-    { day:4, type:"academy", title:"태권도", start:"15:00", end:"16:30", place:"기린태권도장", note:"도복",
+    { days:[4], day:4, type:"academy", title:"태권도", start:"15:00", end:"16:30", place:"기린태권도장", note:"도복",
       goType:"car", goStart:"14:40", goEnd:"14:55", goNote:"학교 정문에서 관장님 차량",
       backType:"car", backStart:"16:30", backEnd:"16:45", backNote:"아파트 정문 하차", isExample:true }
   ];
 
   function withSortKey(it){
-    it.sortKey = (it.day||0) * 1440 + minutesOf(it.start||"00:00");
+    if (!Array.isArray(it.days) || !it.days.length) it.days = [it.day || 0];
+    it.day = it.days[0];
+    it.sortKey = it.days[0] * 1440 + minutesOf(it.start||"00:00");
     return it;
   }
 
@@ -1370,7 +1436,11 @@ var FIREBASE_CONFIG = {
       var map = new Map();
       snap.docs.forEach(function(d){
         var data = d.data() || {};
-        map.set(d.id, Object.assign({ id: d.id }, data));
+        var item = Object.assign({ id: d.id }, data);
+            if (!Array.isArray(item.days) || !item.days.length){
+              item.days = (typeof item.day === "number") ? [item.day] : [];
+            }
+            map.set(d.id, item);
       });
       state.items = map;
       renderAll();
