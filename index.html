@@ -308,7 +308,13 @@ var FIREBASE_CONFIG = {
     border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft); cursor:pointer;
   }
   .day-pick button.active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
-  .day-quick{ display:flex; gap:6px; margin-bottom:2px; }
+  .repeat-toggle{
+    display:flex; align-items:center; gap:9px; margin-top:8px; cursor:pointer;
+    font-size:.84rem; font-weight:700; color:var(--ink);
+  }
+  .repeat-toggle input{ width:19px; height:19px; accent-color:var(--accent); flex-shrink:0; }
+  .repeat-toggle .sub{ font-weight:400; font-size:.74rem; color:var(--ink-faint); }
+  .day-quick{ display:flex; gap:6px; margin-top:8px; }
   .day-quick button{
     font-family:inherit; font-size:.72rem; font-weight:700; padding:5px 12px;
     border-radius:999px; border:1px solid var(--line-strong);
@@ -529,13 +535,16 @@ var FIREBASE_CONFIG = {
     <h2 id="modalTitle">일정 추가</h2>
     <form id="itemForm">
       <div class="field">
-        <label>요일 <span class="sublabel">· 여러 개 선택 가능</span></label>
-        <div class="day-quick">
-          <button type="button" id="qWeekday">평일</button>
-          <button type="button" id="qAll">매일</button>
-          <button type="button" id="qOne">하나만</button>
-        </div>
+        <label>요일</label>
         <div class="day-pick" id="formDayPick"></div>
+        <label class="repeat-toggle" for="repeatChk">
+          <input type="checkbox" id="repeatChk">
+          <span>매주 요일 반복 <span class="sub">여러 요일에 한 번에 등록</span></span>
+        </label>
+        <div class="day-quick" id="dayQuick" hidden>
+          <button type="button" id="qWeekday">평일 전체</button>
+          <button type="button" id="qAll">매일</button>
+        </div>
         <p class="day-hint" id="dayHint"></p>
       </div>
       <div class="field">
@@ -1118,6 +1127,9 @@ var FIREBASE_CONFIG = {
   var currentColor = "";
 
   function buildPickers(){
+    var repeatOn = document.getElementById("repeatChk").checked;
+    document.getElementById("dayQuick").hidden = !repeatOn;
+
     formDayPick.innerHTML = "";
     DAY_LABELS.forEach(function(lbl,i){
       var on = currentFormDays.indexOf(i) !== -1;
@@ -1125,17 +1137,23 @@ var FIREBASE_CONFIG = {
       b.type = "button";
       b.setAttribute("aria-pressed", on ? "true" : "false");
       b.addEventListener("click", function(){
-        var at = currentFormDays.indexOf(i);
-        if (at === -1) currentFormDays.push(i); else currentFormDays.splice(at, 1);
-        currentFormDays.sort(function(x,y){ return x-y; });
+        if (!document.getElementById("repeatChk").checked){
+          currentFormDays = [i];                       // 반복 꺼짐 — 하나만
+        } else {
+          var at = currentFormDays.indexOf(i);
+          if (at === -1) currentFormDays.push(i);
+          else if (currentFormDays.length > 1) currentFormDays.splice(at, 1);
+          currentFormDays.sort(function(x,y){ return x-y; });
+        }
         buildPickers();
       });
       formDayPick.appendChild(b);
     });
-    document.getElementById("dayHint").textContent =
-      currentFormDays.length > 1
-        ? DAY_LABELS.filter(function(_,i){ return currentFormDays.indexOf(i) !== -1; }).join("·") + " 요일에 함께 등록됩니다"
-        : "여러 요일을 눌러 한 번에 등록할 수 있어요";
+
+    var picked = DAY_LABELS.filter(function(_,i){ return currentFormDays.indexOf(i) !== -1; }).join("·");
+    document.getElementById("dayHint").textContent = repeatOn
+      ? "매주 " + picked + "요일에 등록됩니다. 수정·삭제하면 선택한 요일 전체에 적용돼요."
+      : "";
 
     formTypePick.innerHTML = "";
     TYPES.forEach(function(t){
@@ -1190,6 +1208,7 @@ var FIREBASE_CONFIG = {
   function openAdd(day){
     state.editingId = null;
     currentFormDays = [(typeof day === "number") ? day : state.selectedDay];
+    document.getElementById("repeatChk").checked = false;
     currentFormType = "school";
     currentGo = "none"; currentBack = "none";
     currentColor = "";
@@ -1216,6 +1235,7 @@ var FIREBASE_CONFIG = {
     state.editingId = id;
     currentFormDays = daysOf(it).slice();
     if (!currentFormDays.length) currentFormDays = [state.selectedDay];
+    document.getElementById("repeatChk").checked = currentFormDays.length > 1;
     currentFormType = it.type;
     currentGo = it.goType || "none";
     currentBack = it.backType || "none";
@@ -1245,8 +1265,8 @@ var FIREBASE_CONFIG = {
   document.getElementById("qAll").addEventListener("click", function(){
     currentFormDays = [0,1,2,3,4,5,6]; buildPickers();
   });
-  document.getElementById("qOne").addEventListener("click", function(){
-    currentFormDays = [currentFormDays.length ? currentFormDays[0] : state.selectedDay];
+  document.getElementById("repeatChk").addEventListener("change", function(){
+    if (!this.checked && currentFormDays.length > 1) currentFormDays = [currentFormDays[0]];
     buildPickers();
   });
 
